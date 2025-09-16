@@ -3,7 +3,7 @@ from __future__ import annotations
 import streamlit as st
 
 
-APP_TITLE: str = "Marketing Dashboard"
+APP_TITLE: str = "Growth Dashboard"
 APP_ICON: str = "https://framerusercontent.com/images/u8LnenhR3qeY7enlkhKgmaatK40.jpg"
 APP_LAYOUT: str = "wide"
 

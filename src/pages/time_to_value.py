@@ -96,3 +96,4 @@ def time_to_value_page() -> None:
                     labels={'value': 'Days', 'week': 'Week', 'variable': 'Metric'}
                 )
                 st.plotly_chart(fig, use_container_width=True)
+                
