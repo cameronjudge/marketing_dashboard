@@ -8,6 +8,8 @@ streamlit = "*"
 authlib = "*"
 plotly = "*"
 psycopg2 = "*"
+google-cloud-bigquery = "*"
+db-dtypes = "*"
 
 [dev-packages]
 
