@@ -40,6 +40,8 @@ def build_sparkline_area(
         pass
 
     fig.add_trace(go.Scatter(**scatter_kwargs))
+    # Smooth the line for a curved appearance instead of straight segments
+    fig.update_traces(line_shape="spline")
 
     fig.update_layout(
         showlegend=False,
