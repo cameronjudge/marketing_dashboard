@@ -10,6 +10,8 @@ plotly = "*"
 psycopg2 = "*"
 google-cloud-bigquery = "*"
 db-dtypes = "*"
+anthropic = "*"
+st-gsheets-connection = "*"
 
 [dev-packages]
 
