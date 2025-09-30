@@ -1,5 +1,4 @@
 import streamlit as st
-from src.db.google_sheet_connection import load_growth_target
 
 
 def about_page() -> None:

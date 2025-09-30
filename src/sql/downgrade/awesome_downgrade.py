@@ -1,3 +1,4 @@
+#updated to core metrics
 awesome_downgrade_rate = """
 SELECT
     DATE_TRUNC('week', created_at)::date as week_start,

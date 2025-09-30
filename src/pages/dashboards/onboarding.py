@@ -51,9 +51,9 @@ def onboarding_page() -> None:
             # Display metrics
             col1, col2 = st.columns(2)
             with col1:
-                st.metric(label='Avg days to first review', value=avg_val, delta=avg_delta)
+                st.metric(label='Avg days to first review', value=avg_val, delta=avg_delta, delta_color='inverse')
             with col2:
-                st.metric(label='Median days to first review', value=median_val, delta=median_delta)
+                st.metric(label='Median days to first review', value=median_val, delta=median_delta, delta_color='inverse')
 
             # Trend chart for mean and median
             st.subheader('Time to first review (weekly)')

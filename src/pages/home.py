@@ -50,7 +50,7 @@ def _sparkline(df: pd.DataFrame, x_col: str, y_col: str, title: str, height: int
 
 
 def home_page() -> None:
-    st.title('🏠 Home')
+    st.title('🏠 Home - INCORRECT DATA USED AS A PLACEHOLDER DISPLAY')
 
 
     # Queries
@@ -173,9 +173,9 @@ def home_page() -> None:
     with o1:
         val, delta = _latest_with_delta(df_ttf, 'week', 'avg_days_to_first_review')
         if val is not None and pd.notna(val):
-            st.metric('Avg days to first review', format_number(val), format_number(delta) if delta is not None and pd.notna(delta) else None)
+            st.metric('Avg days to first review', format_number(val), format_number(delta) if delta is not None and pd.notna(delta) else None, delta_color='inverse')
         else:
-            st.metric('Avg days to first review', '—', None)
+            st.metric('Avg days to first review', '—', None, delta_color='inverse')
         fig = build_sparkline_area(
             df_ttf.tail(12) if not df_ttf.empty else df_ttf,
             'week', 'avg_days_to_first_review', ''

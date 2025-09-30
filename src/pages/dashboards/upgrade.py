@@ -2,19 +2,26 @@ import streamlit as st
 import plotly.express as px
 import pandas as pd
 from src.db.redshift_connection import run_query, get_redshift_connection
-from src.sql.upgrade.trial import trial_categories_categories
-from src.sql.upgrade.awesome import new_awesome_by_source
+from src.sql.core_metrics.core_metrics import core_metrics
 
 def upgrade_page() -> None:
     st.title('Upgrade')
     
-    st.subheader('Trial Categories')
-
-    df = run_query(trial_categories_categories)
-
+    # Get core metrics data
+    df = run_query(core_metrics)
+    
     if df.empty:
-        st.info('No trial data available yet.')
+        st.info('No data available yet.')
         return
+    
+    # Convert week to datetime and sort
+    df['week'] = pd.to_datetime(df['week'])
+    df = df.sort_values('week')
+    
+    # Header row for Trial Categories: title + inline selector
+    tc_left, tc_right = st.columns([3, 2])
+    with tc_left:
+        st.subheader('Trial Categories')
 
     # Keep only weekly category columns
     category_cols = [
@@ -23,13 +30,7 @@ def upgrade_page() -> None:
         'optin_trials',
         'article_trials',
         'welcome_trials',
-        'cs_trials',
     ]
-
-    # Normalize and order by week
-    if 'week' in df.columns:
-        df['week'] = pd.to_datetime(df['week'])
-        df = df.sort_values('week')
 
     # Filter to available columns only
     existing_cols = [c for c in category_cols if c in df.columns]
@@ -41,7 +42,6 @@ def upgrade_page() -> None:
         'optin_trials': 'Opt-in',
         'article_trials': 'Article',
         'welcome_trials': 'Welcome',
-        'cs_trials': 'Customer Success',
     }
 
     # KPI metrics with WoW deltas
@@ -71,15 +71,15 @@ def upgrade_page() -> None:
                 else:
                     st.metric(
                         label=label_map.get(col, col),
-                        value=int(latest),
+                        value=f"{int(latest):,}",
                         delta=(int(delta) if delta is not None and pd.notna(delta) else None),
                     )
     # Select filter for Trial Categories chart (does not affect KPIs)
     available_trial_labels = [label_map.get(c, c) for c in existing_cols]
-    col_tc_select, _ = st.columns(2)
-    with col_tc_select:
+    with tc_right:
         selected_trial_labels = st.multiselect(
-            'Categories', options=available_trial_labels, default=available_trial_labels, key='trial_categories_select'
+            ' ', options=available_trial_labels, default=available_trial_labels,
+            key='trial_categories_select', label_visibility='collapsed'
         )
     selected_trial_cols = [c for c in existing_cols if label_map.get(c, c) in selected_trial_labels]
 
@@ -96,71 +96,105 @@ def upgrade_page() -> None:
             x='week',
             y='trials',
             color='category',
-            title='Weekly trial starts by category (completed weeks)',
         )
-        fig.update_layout(xaxis_title='Week', yaxis_title='Trials')
+        fig.update_layout(
+            height=340,
+            legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='left', x=0),
+            xaxis_title='Week', yaxis_title='Trials',
+            yaxis=dict(tickformat=','),
+            margin=dict(t=10)
+        )
         st.plotly_chart(fig, use_container_width=True)
 
     # Upgrades by source (stacked bar)
-    st.subheader('Upgrades by source')
-    df_up = run_query(new_awesome_by_source)
-    if df_up.empty:
-        st.info('No upgrade data available yet.')
-        return
-    df_up['week_start'] = pd.to_datetime(df_up['week_start'])
-    df_up = df_up.sort_values('week_start')
+    up_left, up_right = st.columns([3, 2])
+    with up_left:
+        st.subheader('Upgrades by source')
+    
+    # Transform core metrics data for upgrade visualization
+    df_up = df[['week', 'direct_upgrades', 'trial_conversions', 'reopened_shops']].copy()
+    df_up = df_up.melt(id_vars=['week'], var_name='upgrade_path', value_name='count_of_upgrades')
+    df_up['week_start'] = df_up['week']
+    
+    # Map column names to display names
+    path_mapping = {
+        'direct_upgrades': 'direct',
+        'trial_conversions': 'free_trial', 
+        'reopened_shops': 'reopened'
+    }
+    df_up['upgrade_path'] = df_up['upgrade_path'].map(path_mapping)
 
-    category_order = ['direct', 'free_trial', 'reopened', 'other']
-    if 'upgrade_path' in df_up.columns:
-        df_up['upgrade_path'] = pd.Categorical(
-            df_up['upgrade_path'], categories=category_order, ordered=True
-        )
+    category_order = ['direct', 'free_trial', 'reopened']
+    color_map = {
+        'direct': '#72a7ff',
+        'free_trial': '#b8b8ff',
+        'reopened': '#f59db1',
+    }
+    df_up['upgrade_path'] = pd.Categorical(
+        df_up['upgrade_path'], categories=category_order, ordered=True
+    )
 
-    # KPI metrics (exclude 'other') with WoW deltas
-    kpi_order = ['direct', 'free_trial', 'reopened']
-    present_kpis = [k for k in kpi_order if k in df_up['upgrade_path'].astype(str).unique().tolist()]
-
-    def latest_with_delta_upgrades(frame: pd.DataFrame, path: str):
-        temp = frame[frame['upgrade_path'] == path][['week_start', 'count_of_upgrades']].dropna().copy()
+    # KPI metrics with WoW deltas using original df columns
+    def latest_with_delta_direct(df_orig: pd.DataFrame, col: str):
+        temp = df_orig[['week', col]].dropna().copy()
         if temp.empty:
             return None, None
-        temp = temp.sort_values('week_start')
-        latest_val = temp.iloc[-1]['count_of_upgrades']
+        temp = temp.sort_values('week')
+        latest_val = temp.iloc[-1][col]
         if len(temp) < 2:
             return latest_val, None
-        prev_val = temp.iloc[-2]['count_of_upgrades']
+        prev_val = temp.iloc[-2][col]
         try:
             delta_val = float(latest_val) - float(prev_val)
         except Exception:
             delta_val = None
         return latest_val, delta_val
 
+    # Compute totals and format KPIs
+    direct_latest, direct_delta = latest_with_delta_direct(df, 'direct_upgrades')
+    free_trial_latest, free_trial_delta = latest_with_delta_direct(df, 'trial_conversions')
+    reopened_latest, reopened_delta = latest_with_delta_direct(df, 'reopened_shops')
+    total_latest = sum(v for v in [direct_latest, free_trial_latest, reopened_latest] if v is not None) if any(v is not None for v in [direct_latest, free_trial_latest, reopened_latest]) else None
+    total_delta = (
+        (direct_delta if direct_delta is not None else 0)
+        + (free_trial_delta if free_trial_delta is not None else 0)
+        + (reopened_delta if reopened_delta is not None else 0)
+        if all(d is not None for d in [direct_delta, free_trial_delta, reopened_delta])
+        else None
+    )
+    
     kpi_label_map = {
         'direct': 'Direct',
         'free_trial': 'Free trial',
         'reopened': 'Reopened',
+        'total': 'Total'
     }
-    if present_kpis:
-        cols2 = st.columns(len(present_kpis))
-        for idx, key in enumerate(present_kpis):
-            latest, delta = latest_with_delta_upgrades(df_up, key)
-            with cols2[idx]:
-                if latest is None or pd.isna(latest):
-                    st.metric(label=kpi_label_map.get(key, key), value='—', delta=None)
-                else:
-                    st.metric(
-                        label=kpi_label_map.get(key, key),
-                        value=int(latest),
-                        delta=(int(delta) if delta is not None and pd.notna(delta) else None),
-                    )
+    
+    kpi_cols = st.columns(4)
+    kpis = [
+        ('direct', direct_latest, direct_delta),
+        ('free_trial', free_trial_latest, free_trial_delta),
+        ('reopened', reopened_latest, reopened_delta),
+        ('total', total_latest, total_delta),
+    ]
+    
+    for col, (key, val, delta) in zip(kpi_cols, kpis):
+        with col:
+            if val is None or pd.isna(val):
+                st.metric(label=kpi_label_map.get(key, key), value='—', delta=None)
+            else:
+                st.metric(
+                    label=kpi_label_map.get(key, key),
+                    value=f"{int(val):,}",
+                    delta=(int(delta) if delta is not None and pd.notna(delta) else None),
+                )
 
     # Select filter for chart sources
-    available_paths = [p for p in category_order if p in df_up['upgrade_path'].astype(str).unique().tolist()]
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
+    available_paths = category_order
+    with up_right:
         selected_paths = st.multiselect(
-            'Sources', options=available_paths, default=available_paths, key='upgrades_sources_select'
+            ' ', options=available_paths, default=available_paths,
+            key='upgrades_sources_select', label_visibility='collapsed'
         )
     chart_df = df_up[df_up['upgrade_path'].astype(str).isin(selected_paths)] if selected_paths else df_up.iloc[0:0]
 
@@ -175,7 +209,14 @@ def upgrade_page() -> None:
         color='upgrade_path',
         barmode='stack',
         category_orders={'upgrade_path': category_order},
-        title='Weekly upgrades by source (completed weeks)'
+        color_discrete_map=color_map,
     )
-    fig2.update_layout(xaxis_title='Week', yaxis_title='Upgrades')
+    fig2.update_layout(
+        height=340,
+        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='left', x=0),
+        bargap=0.15,
+        xaxis_title='Week', yaxis_title='Upgrades',
+        yaxis=dict(tickformat=','),
+        margin=dict(t=10)
+    )
     st.plotly_chart(fig2, use_container_width=True)

@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from src.db.bigquery_connection import run_query
-from src.sql.google_analytics.google_analytics import google_analytics_query
+from src.sql.google_analytics.google_analytics import ga_add_to_cart, ga_view_app
 
 def google_analytics_page() -> None:
     st.set_page_config(
@@ -12,7 +12,7 @@ def google_analytics_page() -> None:
     
     st.title('Google Analytics')
     
-    df = run_query(google_analytics_query)
+    df = run_query(ga_add_to_cart)
     if df.empty:
         st.info('No data available yet.')
     else:
@@ -20,35 +20,73 @@ def google_analytics_page() -> None:
         df['event_date'] = pd.to_datetime(df['event_date'], format='%Y%m%d')
         df['week'] = df['event_date'].dt.to_period('W').dt.start_time
         
-        # Top metrics for key mediums with WoW deltas
-        def latest_with_delta_medium(frame: pd.DataFrame, medium: str):
-            temp = frame[frame['medium_aggregated'] == medium].groupby('week')['events_count'].sum().reset_index()
-            if temp.empty:
-                return None, None
-            temp = temp.sort_values('week')
-            latest_val = temp.iloc[-1]['events_count']
-            if len(temp) < 2:
-                return latest_val, None
-            prev_val = temp.iloc[-2]['events_count']
-            try:
-                delta_val = float(latest_val) - float(prev_val)
-            except Exception:
-                delta_val = None
-            return latest_val, delta_val
+        # Get views data for top metrics
+        views_df = run_query(ga_view_app)
         
-        # Calculate metrics for key mediums
-        organic_latest, organic_delta = latest_with_delta_medium(df, 'organic_placement')
-        paid_latest, paid_delta = latest_with_delta_medium(df, 'paid_search')
-        partner_latest, partner_delta = latest_with_delta_medium(df, 'partner')
-        website_latest, website_delta = latest_with_delta_medium(df, 'website')
+        # Function to calculate week-over-week metrics
+        def calculate_wow_metrics(df_carts, df_views):
+            # Aggregate weekly data for both datasets
+            weekly_carts = df_carts.groupby('week')['events_count'].sum().reset_index().sort_values('week')
+            
+            if not df_views.empty:
+                df_views['event_date'] = pd.to_datetime(df_views['event_date'], format='%Y%m%d')
+                df_views['week'] = df_views['event_date'].dt.to_period('W').dt.start_time
+                weekly_views = df_views.groupby('week')['events_count'].sum().reset_index().sort_values('week')
+            else:
+                weekly_views = pd.DataFrame(columns=['week', 'events_count'])
+            
+            # Get last two weeks of data
+            if len(weekly_carts) >= 2:
+                last_week_carts = weekly_carts.iloc[-1]['events_count']
+                prev_week_carts = weekly_carts.iloc[-2]['events_count']
+                carts_delta = last_week_carts - prev_week_carts
+            else:
+                last_week_carts = weekly_carts.iloc[-1]['events_count'] if len(weekly_carts) > 0 else 0
+                carts_delta = None
+            
+            if len(weekly_views) >= 2:
+                last_week_views = weekly_views.iloc[-1]['events_count']
+                prev_week_views = weekly_views.iloc[-2]['events_count']
+                views_delta = last_week_views - prev_week_views
+            else:
+                last_week_views = weekly_views.iloc[-1]['events_count'] if len(weekly_views) > 0 else 0
+                views_delta = None
+            
+            # Calculate conversion rates
+            if last_week_views > 0:
+                last_week_conversion = (last_week_carts / last_week_views) * 100
+            else:
+                last_week_conversion = 0
+                
+            if len(weekly_views) >= 2 and len(weekly_carts) >= 2 and prev_week_views > 0:
+                prev_week_conversion = (prev_week_carts / prev_week_views) * 100
+                conversion_delta = last_week_conversion - prev_week_conversion
+            else:
+                conversion_delta = None
+            
+            # Total events (views + carts)
+            total_events = last_week_views + last_week_carts
+            if views_delta is not None and carts_delta is not None:
+                total_delta = views_delta + carts_delta
+            else:
+                total_delta = None
+            
+            return {
+                'views': (last_week_views, views_delta),
+                'carts': (last_week_carts, carts_delta),
+                'conversion': (last_week_conversion, conversion_delta),
+                'total': (total_events, total_delta)
+            }
+        
+        # Calculate metrics
+        metrics = calculate_wow_metrics(df, views_df)
         
         # Display top metrics
         kpi_cols = st.columns(4)
         kpis = [
-            ('Organic', organic_latest, organic_delta),
-            ('Paid Search', paid_latest, paid_delta),
-            ('Partner', partner_latest, partner_delta),
-            ('Website', website_latest, website_delta),
+            ('Views', metrics['views'][0], metrics['views'][1]),
+            ('Add to Carts', metrics['carts'][0], metrics['carts'][1]),
+            ('Conversion Rate', metrics['conversion'][0], metrics['conversion'][1]),
         ]
         
         for col, (label, val, delta) in zip(kpi_cols, kpis):
@@ -56,11 +94,18 @@ def google_analytics_page() -> None:
                 if val is None or pd.isna(val):
                     st.metric(label=label, value='—', delta=None)
                 else:
-                    st.metric(
-                        label=label,
-                        value=f"{int(val):,}",
-                        delta=(int(delta) if delta is not None and pd.notna(delta) else None)
-                    )
+                    if label == 'Conversion Rate':
+                        st.metric(
+                            label=label,
+                            value=f"{val:.1f}%",
+                            delta=(f"{delta:.1f}%" if delta is not None and pd.notna(delta) else None)
+                        )
+                    else:
+                        st.metric(
+                            label=label,
+                            value=f"{int(val):,}",
+                            delta=(int(delta) if delta is not None and pd.notna(delta) else None)
+                        )
         
         st.divider()
         
@@ -176,6 +221,12 @@ def google_analytics_page() -> None:
             show_legend = False
             legend_config = dict()
         
+        # Add data labels on bars
+        fig.update_traces(
+            texttemplate='%{y:,.0f}',
+            textposition='outside'
+        )
+        
         # Apply consistent dashboard styling
         fig.update_layout(
             showlegend=show_legend,
@@ -192,6 +243,116 @@ def google_analytics_page() -> None:
         fig.update_yaxes(showgrid=False)
 
         st.plotly_chart(fig, use_container_width=True)
+        
+        # New charts section
+        st.divider()
+        
+        if not views_df.empty:
+            # Convert event_date and add week column for views
+            views_df['event_date'] = pd.to_datetime(views_df['event_date'], format='%Y%m%d')
+            views_df['week'] = views_df['event_date'].dt.to_period('W').dt.start_time
+            
+            # Apply same filters to views data
+            filtered_views_df = views_df.copy()
+            
+            if selected_mediums:
+                filtered_views_df = filtered_views_df[filtered_views_df['medium_aggregated'].isin(selected_mediums)]
+            
+            if selected_sources:
+                filtered_views_df = filtered_views_df[filtered_views_df['source_aggregated'].isin(selected_sources)]
+            
+            if selected_campaigns:
+                filtered_views_df = filtered_views_df[filtered_views_df['campaign_aggregated'].isin(selected_campaigns)]
+            
+            if selected_campaign_details:
+                filtered_views_df = filtered_views_df[filtered_views_df['campaign_details_aggregated'].isin(selected_campaign_details)]
+            
+            # Aggregate weekly data
+            weekly_views = filtered_views_df.groupby('week')['events_count'].sum().reset_index()
+            weekly_views.columns = ['week', 'views']
+            
+            weekly_carts = filtered_df.groupby('week')['events_count'].sum().reset_index()
+            weekly_carts.columns = ['week', 'add_to_carts']
+            
+            # Merge views and carts data
+            combined_df = pd.merge(weekly_views, weekly_carts, on='week', how='outer').fillna(0)
+            
+            # Create two columns for the new charts
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Chart 1: Views and Add to Carts tracking
+                fig_tracking = px.line(
+                    combined_df.melt(id_vars=['week'], value_vars=['views', 'add_to_carts'], 
+                                   var_name='metric', value_name='count'),
+                    x='week',
+                    y='count',
+                    color='metric',
+                    title='Weekly Views vs Add to Carts',
+                    markers=True
+                )
+                
+                # Add data labels on points
+                for trace in fig_tracking.data:
+                    trace.textposition = 'top center'
+                    trace.texttemplate = '%{y:,.0f}'
+                    trace.mode = 'lines+markers+text'
+                
+                # Apply styling
+                fig_tracking.update_layout(
+                    showlegend=True,
+                    margin=dict(l=10, r=10, t=30, b=0),
+                    xaxis_title=None,
+                    yaxis_title=None,
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    legend=dict(
+                        orientation='h',
+                        yanchor='top',
+                        y=-0.1,
+                        xanchor='center',
+                        x=0.5
+                    )
+                )
+                
+                fig_tracking.update_xaxes(showgrid=False)
+                fig_tracking.update_yaxes(showgrid=False)
+                
+                st.plotly_chart(fig_tracking, use_container_width=True)
+            
+            with col2:
+                # Chart 2: Conversion rate (add to cart / views)
+                combined_df['conversion_rate'] = (combined_df['add_to_carts'] / combined_df['views'] * 100).fillna(0)
+                
+                fig_conversion = px.line(
+                    combined_df,
+                    x='week',
+                    y='conversion_rate',
+                    title='Weekly Add to Cart Conversion Rate (%)',
+                    markers=True
+                )
+                
+                # Add data labels on points
+                fig_conversion.update_traces(
+                    textposition='top center',
+                    texttemplate='%{y:.1f}%',
+                    mode='lines+markers+text'
+                )
+                
+                # Apply styling
+                fig_conversion.update_layout(
+                    showlegend=False,
+                    margin=dict(l=10, r=10, t=30, b=0),
+                    xaxis_title=None,
+                    yaxis_title=None,
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    paper_bgcolor="rgba(0,0,0,0)"
+                )
+                
+                fig_conversion.update_xaxes(showgrid=False)
+                fig_conversion.update_yaxes(showgrid=False, range=[0, None])
+                
+                st.plotly_chart(fig_conversion, use_container_width=True)
         
         # Sources breakdown table
         st.subheader('Sources Breakdown')

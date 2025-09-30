@@ -20,6 +20,3 @@ def get_redshift_connection():
 def run_query(query):
     with get_redshift_connection() as conn:
         return pd.read_sql_query(query, conn)
-
-
-

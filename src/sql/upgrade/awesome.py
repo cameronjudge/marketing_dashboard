@@ -1,3 +1,5 @@
+#updated to core metrics
+
 new_awesome_by_source = """
 SELECT
     DATE_TRUNC('week', created_at)::date as week_start,
