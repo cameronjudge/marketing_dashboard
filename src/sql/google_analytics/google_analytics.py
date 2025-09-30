@@ -186,7 +186,7 @@ page_locations AS (
     `review-site-307404.analytics_476622290.events_*`,
     date_filter
   WHERE 
-    event_name = 'page_view'
+    event_name = 'view_item'
     AND PARSE_DATE('%Y%m%d', event_date) >= date_filter.start_date
     AND PARSE_DATE('%Y%m%d', event_date) <= date_filter.last_completed_day
 ),
