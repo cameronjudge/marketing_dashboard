@@ -24,10 +24,3 @@ def run_query(query: str) -> pd.DataFrame:
     """
     client = get_bigquery_client()
     return client.query(query).to_dataframe()
-
-
-if __name__ == "__main__":
-    example_query = 'SELECT * FROM `review-site-307404.analytics_476622290.events_*` LIMIT 100'
-    df = run_query(example_query)
-    print(df)
-    
