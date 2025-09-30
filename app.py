@@ -11,6 +11,7 @@ from src.pages.dashboards.upgrade import upgrade_page
 from src.pages.dashboards.downgrade import downgrade_page
 from src.pages.dashboards.churn import churn_page
 from src.pages.dashboards.onboarding import onboarding_page
+from src.pages.dashboards.google_analytics import google_analytics_page
 from src.auth.login import user_login
 
 
@@ -35,6 +36,7 @@ def main() -> None:
     downgrade_pg = st.Page(downgrade_page, title='Downgrade', icon='⬇️')
     churn_pg = st.Page(churn_page, title='Churn', icon='🧹')
     onboarding_pg = st.Page(onboarding_page, title='Onboarding', icon='🚀')
+    google_analytics_pg = st.Page(google_analytics_page, title='Google Analytics', icon='🟢')
 
     pages = {
         "Home": [st.Page(home_page, title='Home', icon='🏠')],
@@ -47,6 +49,7 @@ def main() -> None:
             downgrade_pg,
             churn_pg,
             onboarding_pg,
+            google_analytics_pg,
         ],
     }
 
@@ -60,6 +63,7 @@ def main() -> None:
         downgrade_pg,
         churn_pg,
         onboarding_pg,
+        google_analytics_pg,
     }
 
     if pg in dashboard_pages:
