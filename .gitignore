@@ -218,3 +218,6 @@ __marimo__/
 
 .cursorindexingignore
 /.specstory
+
+/.kiro
+/.vscode
