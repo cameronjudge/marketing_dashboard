@@ -10,7 +10,7 @@ def google_analytics_page() -> None:
         layout='wide'
     )
     
-    st.title('Google Analytics')
+    st.title('Listing Analytics')
     
     df = run_query(ga_add_to_cart)
     if df.empty:
