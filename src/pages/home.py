@@ -3,13 +3,8 @@ import pandas as pd
 import plotly.express as px
 
 from src.db.redshift_connection import run_query
-from src.sql.growth.net_growth import (
-    gross_installs_wow,
-    net_growth_installs_wow,
-    net_growth_awesome_plan_wow,
-)
-from src.sql.upgrade.trial import trial_categories_categories
-from src.sql.sql import time_to_first_review_query
+from src.sql.core_metrics.core_metrics import core_metrics
+from src.sql.core_metrics.monthly_core_metrics import monthly_core_metrics
 from src.utils.chart_builder import build_sparkline_area, format_number, format_percent
 
 
@@ -50,135 +45,102 @@ def _sparkline(df: pd.DataFrame, x_col: str, y_col: str, title: str, height: int
 
 
 def home_page() -> None:
-    st.title('🏠 Home - INCORRECT DATA USED AS A PLACEHOLDER DISPLAY')
+    st.title('🏠 Home Dashboard')
 
-
-    # Queries
+    # Get core metrics data (weekly)
     try:
-        df_net_overall = run_query(net_growth_installs_wow)
+        df_core = run_query(core_metrics)
     except Exception:
-        df_net_overall = pd.DataFrame()
+        df_core = pd.DataFrame()
+    
+    if not df_core.empty:
+        df_core['week'] = pd.to_datetime(df_core['week'])
+        df_core = df_core.sort_values('week')
+        
+        # Calculate total trials from core metrics
+        trial_cols = ['home_trials', 'upsell_trials', 'optin_trials', 'article_trials', 'welcome_trials']
+        existing_trial_cols = [c for c in trial_cols if c in df_core.columns]
+        if existing_trial_cols:
+            df_core['total_trials'] = df_core[existing_trial_cols].sum(axis=1)
 
+    # Get monthly metrics data
     try:
-        df_net_awesome = run_query(net_growth_awesome_plan_wow)
-    except Exception:
-        df_net_awesome = pd.DataFrame()
-
-    try:
-        df_installs = run_query(gross_installs_wow)
-    except Exception:
-        df_installs = pd.DataFrame()
-
-    # Monthly activity for overall growth %
-    monthly_activity_sql = """
-        select monthly_date,
-               total_active_installed_users,
-               total_active_upgraded_users,
-               monthly_install_growth_rate
-        from dbt.agg__monthly_shop_activity_metrics
-        order by monthly_date
-        limit 12
-    """
-    try:
-        df_monthly = run_query(monthly_activity_sql)
+        df_monthly = run_query(monthly_core_metrics)
     except Exception:
         df_monthly = pd.DataFrame()
-    if not df_monthly.empty and 'monthly_date' in df_monthly.columns:
-        df_monthly['monthly_date'] = pd.to_datetime(df_monthly['monthly_date'])
-        df_monthly = df_monthly.sort_values('monthly_date')
-        df_monthly['overall_growth_pct'] = df_monthly.get('monthly_install_growth_rate')
-
-    # Trial categories (sum to total weekly trials)
-    try:
-        df_trials = run_query(trial_categories_categories)
-    except Exception:
-        df_trials = pd.DataFrame()
-    trial_cols = ['home_trials', 'upsell_trials', 'optin_trials', 'article_trials', 'welcome_trials', 'cs_trials']
-    if not df_trials.empty:
-        if 'week' in df_trials.columns:
-            df_trials['week'] = pd.to_datetime(df_trials['week'])
-            df_trials = df_trials.sort_values('week')
-        existing = [c for c in trial_cols if c in df_trials.columns]
-        if existing:
-            df_trials['total_trials'] = df_trials[existing].sum(axis=1)
-
-    # Time to first review (weekly)
-    try:
-        df_ttf = run_query(time_to_first_review_query)
-    except Exception:
-        df_ttf = pd.DataFrame()
-    if not df_ttf.empty and 'week' in df_ttf.columns:
-        df_ttf['week'] = pd.to_datetime(df_ttf['week'])
-        df_ttf = df_ttf.sort_values('week')
+    
+    if not df_monthly.empty:
+        df_monthly['month'] = pd.to_datetime(df_monthly['month'])
+        df_monthly = df_monthly.sort_values('month')
 
     # Group: Growth
     st.markdown('### Growth')
     g1, g2, g3 = st.columns(3)
     with g1:
-        val, delta = _latest_with_delta(df_net_overall, 'week_start', 'net_weekly_change')
-        st.metric('Weekly net adds (overall)', format_number(val) if pd.notna(val) else '—', format_number(delta) if delta is not None and pd.notna(delta) else None)
+        # Weekly net installs from core metrics
+        val, delta = _latest_with_delta(df_core, 'week', 'net_installs') if not df_core.empty else (None, None)
+        st.metric('Weekly net installs', format_number(val) if val is not None and pd.notna(val) else '—', format_number(delta) if delta is not None and pd.notna(delta) else None)
         fig = build_sparkline_area(
-            df_net_overall.sort_values('week_start').tail(12) if not df_net_overall.empty else df_net_overall,
-            'week_start', 'net_weekly_change', ''
-        )
+            df_core.tail(12) if not df_core.empty else df_core,
+            'week', 'net_installs', ''
+        ) if not df_core.empty else None
         if fig:
             st.plotly_chart(fig, use_container_width=True)
     with g2:
-        val, delta = _latest_with_delta(df_net_awesome, 'week_start', 'net_weekly_change')
-        st.metric('Weekly net adds (Awesome)', format_number(val) if pd.notna(val) else '—', format_number(delta) if delta is not None and pd.notna(delta) else None)
+        # Weekly net upgrades from core metrics
+        val, delta = _latest_with_delta(df_core, 'week', 'core_net_upgrades') if not df_core.empty else (None, None)
+        st.metric('Weekly net upgrades', format_number(val) if val is not None and pd.notna(val) else '—', format_number(delta) if delta is not None and pd.notna(delta) else None)
         fig = build_sparkline_area(
-            df_net_awesome.sort_values('week_start').tail(12) if not df_net_awesome.empty else df_net_awesome,
-            'week_start', 'net_weekly_change', ''
-        )
+            df_core.tail(12) if not df_core.empty else df_core,
+            'week', 'core_net_upgrades', ''
+        ) if not df_core.empty else None
         if fig:
             st.plotly_chart(fig, use_container_width=True)
     with g3:
-        val, delta = _latest_with_delta(df_monthly, 'monthly_date', 'overall_growth_pct')
+        # Monthly total growth rate from monthly metrics
+        val, delta = _latest_with_delta(df_monthly, 'month', 'total_growth_rate_pct') if not df_monthly.empty else (None, None)
         if val is not None and pd.notna(val):
-            st.metric('Monthly growth % (overall)', format_percent(val), format_percent(delta) if delta is not None and pd.notna(delta) else None)
+            st.metric('Monthly growth %', format_percent(val), format_percent(delta) if delta is not None and pd.notna(delta) else None)
         else:
-            st.metric('Monthly growth % (overall)', '—', None)
+            st.metric('Monthly growth %', '—', None)
         fig = build_sparkline_area(
             df_monthly.tail(12) if not df_monthly.empty else df_monthly,
-            'monthly_date', 'overall_growth_pct', ''
-        )
+            'month', 'total_growth_rate_pct', ''
+        ) if not df_monthly.empty else None
         if fig:
             st.plotly_chart(fig, use_container_width=True)
 
     # Group: Acquisition
     st.markdown('### Acquisition')
-    a1, a2, _ = st.columns(3)
+    a1, a2, a3 = st.columns(3)
     with a1:
-        val, delta = _latest_with_delta(df_installs, 'week_start', 'gross_installs')
-        st.metric('Weekly gross installs', format_number(val) if pd.notna(val) else '—', format_number(delta) if delta is not None and pd.notna(delta) else None)
+        # Weekly upgrades from core metrics
+        val, delta = _latest_with_delta(df_core, 'week', 'core_upgrades') if not df_core.empty else (None, None)
+        st.metric('Weekly upgrades', format_number(val) if val is not None and pd.notna(val) else '—', format_number(delta) if delta is not None and pd.notna(delta) else None)
         fig = build_sparkline_area(
-            df_installs.sort_values('week_start').tail(12) if not df_installs.empty else df_installs,
-            'week_start', 'gross_installs', ''
-        )
+            df_core.tail(12) if not df_core.empty else df_core,
+            'week', 'core_upgrades', ''
+        ) if not df_core.empty else None
         if fig:
             st.plotly_chart(fig, use_container_width=True)
     with a2:
-        val, delta = _latest_with_delta(df_trials, 'week', 'total_trials') if not df_trials.empty and 'total_trials' in df_trials.columns else (None, None)
-        st.metric('Weekly trial starts (total)', format_number(val) if val is not None and pd.notna(val) else '—', format_number(delta) if delta is not None and pd.notna(delta) else None)
+        # Weekly trial starts from core metrics
+        val, delta = _latest_with_delta(df_core, 'week', 'total_trials') if not df_core.empty and 'total_trials' in df_core.columns else (None, None)
+        st.metric('Weekly trial starts', format_number(val) if val is not None and pd.notna(val) else '—', format_number(delta) if delta is not None and pd.notna(delta) else None)
         fig = build_sparkline_area(
-            df_trials.sort_values('week').tail(12) if not df_trials.empty else df_trials,
+            df_core.tail(12) if not df_core.empty else df_core,
             'week', 'total_trials', ''
-        ) if not df_trials.empty and 'total_trials' in df_trials.columns else None
+        ) if not df_core.empty and 'total_trials' in df_core.columns else None
         if fig:
             st.plotly_chart(fig, use_container_width=True)
-
-    # Group: Onboarding
-    st.markdown('### Onboarding')
-    o1, _, _ = st.columns(3)
-    with o1:
-        val, delta = _latest_with_delta(df_ttf, 'week', 'avg_days_to_first_review')
-        if val is not None and pd.notna(val):
-            st.metric('Avg days to first review', format_number(val), format_number(delta) if delta is not None and pd.notna(delta) else None, delta_color='inverse')
-        else:
-            st.metric('Avg days to first review', '—', None, delta_color='inverse')
+    with a3:
+        # Trial conversions from core metrics
+        val, delta = _latest_with_delta(df_core, 'week', 'trial_conversions') if not df_core.empty else (None, None)
+        st.metric('Weekly trial conversions', format_number(val) if val is not None and pd.notna(val) else '—', format_number(delta) if delta is not None and pd.notna(delta) else None)
         fig = build_sparkline_area(
-            df_ttf.tail(12) if not df_ttf.empty else df_ttf,
-            'week', 'avg_days_to_first_review', ''
-        )
+            df_core.tail(12) if not df_core.empty else df_core,
+            'week', 'trial_conversions', ''
+        ) if not df_core.empty else None
         if fig:
             st.plotly_chart(fig, use_container_width=True)
+            

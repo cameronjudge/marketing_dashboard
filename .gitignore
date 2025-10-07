@@ -221,3 +221,7 @@ __marimo__/
 
 /.kiro
 /.vscode
+/.DS_Store
+
+
+data.py

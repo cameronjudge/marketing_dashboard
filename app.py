@@ -36,7 +36,7 @@ def main() -> None:
     downgrade_pg = st.Page(downgrade_page, title='Downgrade', icon='⬇️')
     churn_pg = st.Page(churn_page, title='Churn', icon='🧹')
     onboarding_pg = st.Page(onboarding_page, title='Onboarding', icon='🚀')
-    google_analytics_pg = st.Page(google_analytics_page, title='Google Analytics', icon='🟢')
+    google_analytics_pg = st.Page(google_analytics_page, title='Listing Analytics', icon='🟢')
 
     pages = {
         "Home": [st.Page(home_page, title='Home', icon='🏠')],

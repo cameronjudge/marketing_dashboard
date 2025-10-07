@@ -220,3 +220,209 @@ def upgrade_page() -> None:
         margin=dict(t=10)
     )
     st.plotly_chart(fig2, use_container_width=True)
+
+    # Net Awesome (Net Upgrades) Chart
+    st.subheader('Net Awesome (Upgrades - Downgrades)')
+    
+    # Create net upgrades chart data
+    net_df = df[['week', 'core_upgrades', 'core_downgrades', 'core_net_upgrades']].copy()
+    
+    # KPI for net upgrades with WoW delta
+    net_latest, net_delta = latest_with_delta_direct(df, 'core_net_upgrades')
+    upgrades_latest, upgrades_delta = latest_with_delta_direct(df, 'core_upgrades')
+    downgrades_latest, downgrades_delta = latest_with_delta_direct(df, 'core_downgrades')
+    
+    # Display net upgrades KPIs
+    net_kpi_cols = st.columns(3)
+    net_kpis = [
+        ('Net Upgrades', net_latest, net_delta),
+        ('Total Upgrades', upgrades_latest, upgrades_delta),
+        ('Total Downgrades', downgrades_latest, downgrades_delta),
+    ]
+    
+    for col, (label, val, delta) in zip(net_kpi_cols, net_kpis):
+        with col:
+            if val is None or pd.isna(val):
+                st.metric(label=label, value='—', delta=None)
+            else:
+                delta_color = 'inverse' if label == 'Total Downgrades' else 'normal'
+                st.metric(
+                    label=label,
+                    value=f"{int(val):,}",
+                    delta=(int(delta) if delta is not None and pd.notna(delta) else None),
+                    delta_color=delta_color
+                )
+    
+    # Create line chart for net upgrades trend
+    fig_net = px.line(
+        net_df,
+        x='week',
+        y='core_net_upgrades',
+        title='Weekly Net Upgrades Trend',
+        markers=True
+    )
+    
+    # Add data labels on points
+    fig_net.update_traces(
+        textposition='top center',
+        texttemplate='%{y:,.0f}',
+        mode='lines+markers+text'
+    )
+    
+    # Add horizontal line at y=0 for reference
+    fig_net.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
+    
+    # Apply styling
+    fig_net.update_layout(
+        height=340,
+        showlegend=False,
+        margin=dict(l=10, r=10, t=30, b=0),
+        xaxis_title='Week',
+        yaxis_title='Net Upgrades',
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        yaxis=dict(tickformat=',')
+    )
+    
+    fig_net.update_xaxes(showgrid=False)
+    fig_net.update_yaxes(showgrid=False)
+    
+    st.plotly_chart(fig_net, use_container_width=True)
+
+    # Trial Conversions by Type
+    st.subheader('Trial Conversion Rates by Type')
+    
+    # Define conversion rate columns that should be available from the query
+    cvr_cols = {
+        'home': 'home_cvr_pct',
+        'upsell': 'upsell_cvr_pct', 
+        'optin': 'optin_cvr_pct',
+        'article': 'article_cvr_pct',
+        'welcome': 'welcome_cvr_pct'
+    }
+    
+    # Define completed and conversion columns
+    completed_cols = {
+        'home': 'home_completed',
+        'upsell': 'upsell_completed',
+        'optin': 'optin_completed', 
+        'article': 'article_completed',
+        'welcome': 'welcome_completed'
+    }
+    
+    conversion_cols = {
+        'home': 'home_conversions',
+        'upsell': 'upsell_conversions',
+        'optin': 'optin_conversions',
+        'article': 'article_conversions', 
+        'welcome': 'welcome_conversions'
+    }
+    
+    # Filter to only include trial types that have data
+    available_cvr_types = [trial_type for trial_type in cvr_cols.keys() 
+                          if cvr_cols[trial_type] in df.columns and completed_cols[trial_type] in df.columns]
+    
+    if available_cvr_types:
+        # KPI metrics for conversion rates with WoW deltas
+        def latest_with_delta_cvr(df_orig: pd.DataFrame, col: str):
+            temp = df_orig[['week', col]].dropna().copy()
+            if temp.empty:
+                return None, None
+            temp = temp.sort_values('week')
+            latest_val = temp.iloc[-1][col]
+            if len(temp) < 2:
+                return latest_val, None
+            prev_val = temp.iloc[-2][col]
+            try:
+                delta_val = float(latest_val) - float(prev_val)
+            except Exception:
+                delta_val = None
+            return latest_val, delta_val
+        
+        # Display conversion rate KPIs
+        conv_kpi_cols = st.columns(len(available_cvr_types))
+        for idx, trial_type in enumerate(available_cvr_types):
+            cvr_col = cvr_cols[trial_type]
+            completed_col = completed_cols[trial_type]
+            conversions_col = conversion_cols[trial_type]
+            
+            latest_cvr, delta_cvr = latest_with_delta_cvr(df, cvr_col)
+            latest_completed, _ = latest_with_delta_cvr(df, completed_col)
+            latest_conversions, _ = latest_with_delta_cvr(df, conversions_col)
+            
+            with conv_kpi_cols[idx]:
+                if latest_cvr is None or pd.isna(latest_cvr):
+                    st.metric(label=f"{label_map.get(f'{trial_type}_trials', trial_type.title())} CVR", value='—', delta=None)
+                else:
+                    # Show additional context in help text
+                    help_text = None
+                    if latest_completed is not None and latest_conversions is not None:
+                        help_text = f"{int(latest_conversions)} conversions / {int(latest_completed)} completed trials"
+                    
+                    st.metric(
+                        label=f"{label_map.get(f'{trial_type}_trials', trial_type.title())} CVR",
+                        value=f"{latest_cvr:.1f}%",
+                        delta=(f"{delta_cvr:.1f}pp" if delta_cvr is not None and pd.notna(delta_cvr) else None),
+                        help=help_text
+                    )
+        
+        # Create conversion rate chart
+        cvr_chart_cols = ['week'] + [cvr_cols[t] for t in available_cvr_types]
+        conv_chart_df = df[cvr_chart_cols].melt(
+            id_vars='week', var_name='trial_type', value_name='conversion_rate'
+        )
+        
+        # Map CVR column names back to friendly names
+        cvr_label_map = {cvr_cols[trial_type]: label_map.get(f'{trial_type}_trials', trial_type.title()) 
+                        for trial_type in available_cvr_types}
+        conv_chart_df['trial_type'] = conv_chart_df['trial_type'].map(cvr_label_map)
+        
+        # Filter for chart display
+        conv_left, conv_right = st.columns([3, 2])
+        with conv_right:
+            available_conv_labels = list(cvr_label_map.values())
+            # Default to 'Home' if available, otherwise use all
+            default_selection = ['Home'] if 'Home' in available_conv_labels else available_conv_labels
+            selected_conv_labels = st.multiselect(
+                ' ', options=available_conv_labels, default=default_selection,
+                key='conversion_rates_select', label_visibility='collapsed'
+            )
+        
+        filtered_conv_df = conv_chart_df[conv_chart_df['trial_type'].isin(selected_conv_labels)] if selected_conv_labels else conv_chart_df.iloc[0:0]
+        
+        if not filtered_conv_df.empty:
+            fig_conv = px.line(
+                filtered_conv_df,
+                x='week',
+                y='conversion_rate',
+                color='trial_type',
+                markers=True
+            )
+            
+            # Add data labels on points
+            fig_conv.update_traces(
+                textposition='top center',
+                texttemplate='%{y:.1f}%',
+                mode='lines+markers+text'
+            )
+            
+            # Apply styling
+            fig_conv.update_layout(
+                height=340,
+                legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='left', x=0),
+                margin=dict(l=10, r=10, t=30, b=0),
+                xaxis_title='Week',
+                yaxis_title='Conversion Rate (%)',
+                plot_bgcolor="rgba(0,0,0,0)",
+                paper_bgcolor="rgba(0,0,0,0)",
+                yaxis=dict(tickformat='.1f', range=[0, None])
+            )
+            
+            fig_conv.update_xaxes(showgrid=False)
+            fig_conv.update_yaxes(showgrid=False)
+            
+            st.plotly_chart(fig_conv, use_container_width=True)
+        else:
+            st.info('Select at least one trial type to display conversion rates.')
+    else:
+        st.info('No trial conversion rate data available.')

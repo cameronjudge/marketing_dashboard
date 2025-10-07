@@ -1,264 +1,277 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 
 from src.db.redshift_connection import run_query
-from src.sql.growth.net_growth import (
-    gross_installs_wow,
-    net_growth_installs_wow,
-    net_growth_awesome_plan_wow,
-)
-
-
-def _format_week(df: pd.DataFrame, column: str) -> pd.DataFrame:
-    if column in df.columns:
-        df[column] = pd.to_datetime(df[column])
-        df = df.sort_values(column)
-    return df
-
-
-def _latest_with_delta(
-    df: pd.DataFrame,
-    date_column: str,
-    value_column: str
-) -> tuple[pd.Series | None, float | None]:
-    if df is None or df.empty or value_column not in df.columns:
-        return None, None
-    temp = df.dropna(subset=[value_column]).copy()
-    if temp.empty:
-        return None, None
-    if date_column in temp.columns:
-        temp[date_column] = pd.to_datetime(temp[date_column])
-        temp = temp.sort_values(date_column)
-    if len(temp) == 1:
-        latest_val = temp.iloc[-1][value_column]
-        return latest_val, None
-    latest_val = temp.iloc[-1][value_column]
-    prev_val = temp.iloc[-2][value_column]
-    try:
-        delta_val = float(latest_val) - float(prev_val)
-    except Exception:
-        delta_val = None
-    return latest_val, delta_val
+from src.sql.core_metrics.core_metrics import core_metrics
+from src.sql.core_metrics.monthly_core_metrics import monthly_core_metrics
 
 
 def growth_page() -> None:
     st.title('Growth')
-
-    # Prepare monthly SQL (limited to 12 months) and preload data for KPIs and charts
-    monthly_activity_sql = """
-        select monthly_date,
-               total_active_installed_users,
-               total_active_upgraded_users,
-               monthly_install_growth_rate,
-               monthly_upgrade_growth_rate
-        from dbt.agg__monthly_shop_activity_metrics
-        order by monthly_date desc
-        limit 12
-    """
-
-    try:
-        df_net_overall = run_query(net_growth_installs_wow)
-    except Exception:
-        df_net_overall = pd.DataFrame()
-
-    try:
-        df_net_awesome = run_query(net_growth_awesome_plan_wow)
-    except Exception:
-        df_net_awesome = pd.DataFrame()
-
-    try:
-        df_monthly = run_query(monthly_activity_sql)
-    except Exception:
-        df_monthly = pd.DataFrame()
-
-    try:
-        df_installs = run_query(gross_installs_wow)
-    except Exception:
-        df_installs = pd.DataFrame()
-
-    # Derive monthly overall growth % for KPI
-    if not df_monthly.empty and 'monthly_install_growth_rate' in df_monthly.columns:
-        df_monthly['overall_growth_pct'] = df_monthly['monthly_install_growth_rate']
-
-    # Key metrics (with deltas)
-    st.subheader('Key metrics')
-
-    net_overall_val, net_overall_delta = _latest_with_delta(
-        df_net_overall, 'week_start', 'net_weekly_change'
-    )
-    net_awesome_val, net_awesome_delta = _latest_with_delta(
-        df_net_awesome, 'week_start', 'net_weekly_change'
-    )
-    installs_val, installs_delta = _latest_with_delta(
-        df_installs, 'week_start', 'gross_installs'
-    )
-    monthly_growth_val, monthly_growth_delta = _latest_with_delta(
-        df_monthly, 'monthly_date', 'overall_growth_pct'
-    )
-
-    k1, k2, k3, k4 = st.columns(4)
-    with k1:
-        st.metric(
-            label='Weekly net adds (overall)',
-            value=int(net_overall_val) if pd.notna(net_overall_val) else '—',
-            delta=(
-                int(net_overall_delta) if net_overall_delta is not None and pd.notna(net_overall_delta) else None
-            ),
-        )
-    with k2:
-        st.metric(
-            label='Weekly net adds (Awesome)',
-            value=int(net_awesome_val) if pd.notna(net_awesome_val) else '—',
-            delta=(
-                int(net_awesome_delta) if net_awesome_delta is not None and pd.notna(net_awesome_delta) else None
-            ),
-        )
-    with k3:
-        st.metric(
-            label='Weekly gross installs',
-            value=int(installs_val) if pd.notna(installs_val) else '—',
-            delta=(
-                int(installs_delta) if installs_delta is not None and pd.notna(installs_delta) else None
-            ),
-        )
-    with k4:
-        if monthly_growth_val is not None and pd.notna(monthly_growth_val):
-            mgv = float(monthly_growth_val)
-            mgd = (
-                float(monthly_growth_delta) if monthly_growth_delta is not None and pd.notna(monthly_growth_delta) else None
-            )
+    
+    # Get core metrics data
+    df = run_query(core_metrics)
+    
+    if df.empty:
+        st.info('No data available yet.')
+        return
+    
+    # Convert week to datetime and sort
+    df['week'] = pd.to_datetime(df['week'])
+    df = df.sort_values('week')
+    
+    # Helper function for latest value with WoW delta
+    def latest_with_delta(df_orig: pd.DataFrame, col: str):
+        temp = df_orig[['week', col]].dropna().copy()
+        if temp.empty:
+            return None, None
+        temp = temp.sort_values('week')
+        latest_val = temp.iloc[-1][col]
+        if len(temp) < 2:
+            return latest_val, None
+        prev_val = temp.iloc[-2][col]
+        try:
+            delta_val = float(latest_val) - float(prev_val)
+        except Exception:
+            delta_val = None
+        return latest_val, delta_val
+    
+    # Net Growth WoW — Overall (New – Lost) users this week (all users)
+    st.subheader('Net Growth WoW — Overall')
+    st.caption('(New – Lost) users this week (all users)')
+    
+    # KPI for net installs
+    net_installs_latest, net_installs_delta = latest_with_delta(df, 'net_installs')
+    
+    kpi_col1, kpi_col2, kpi_col3 = st.columns(3)
+    with kpi_col1:
+        if net_installs_latest is None or pd.isna(net_installs_latest):
+            st.metric(label='Net Installs', value='—', delta=None)
+        else:
             st.metric(
-                label='Monthly growth % (overall)',
-                value=f"{mgv:.2f}%",
-                delta=(f"{mgd:.2f}%" if mgd is not None else None),
+                label='Net Installs',
+                value=f"{int(net_installs_latest):,}",
+                delta=(int(net_installs_delta) if net_installs_delta is not None and pd.notna(net_installs_delta) else None)
             )
-        else:
-            st.metric(label='Monthly growth % (overall)', value='—', delta=None)
-
-    # Net growth WoW — Overall (data preloaded above)
-
-    if df_net_overall.empty:
-        st.info('No weekly net growth (overall) data available.')
-    else:
-        df_net_overall = _format_week(df_net_overall, 'week_start')
-        st.subheader('Net growth WoW — Overall')
-        fig = px.line(
-            df_net_overall,
-            x='week_start',
-            y='net_weekly_change',
-            markers=True,
-            title='Weekly net adds (overall)'
+    
+    # Create line chart for net installs trend
+    fig_overall = px.line(
+        df,
+        x='week',
+        y='net_installs',
+        markers=True
+    )
+    
+    # Add data labels on points
+    fig_overall.update_traces(
+        textposition='top center',
+        texttemplate='%{y:,.0f}',
+        mode='lines+markers+text'
+    )
+    
+    # Add horizontal line at y=0 for reference
+    fig_overall.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
+    
+    # Apply styling
+    fig_overall.update_layout(
+        height=340,
+        showlegend=False,
+        margin=dict(l=10, r=10, t=30, b=0),
+        xaxis_title='Week',
+        yaxis_title='Net Installs',
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        yaxis=dict(tickformat=',')
+    )
+    
+    fig_overall.update_xaxes(showgrid=False)
+    fig_overall.update_yaxes(showgrid=False)
+    
+    st.plotly_chart(fig_overall, use_container_width=True)
+    
+    # Net Growth WoW — Awesome (New – Lost) users this week (paid users only)
+    st.subheader('Net Growth WoW — Awesome')
+    st.caption('(New – Lost) users this week (paid users only)')
+    
+    # KPI for net upgrades (awesome users)
+    net_upgrades_latest, net_upgrades_delta = latest_with_delta(df, 'core_net_upgrades')
+    upgrades_latest, upgrades_delta = latest_with_delta(df, 'core_upgrades')
+    downgrades_latest, downgrades_delta = latest_with_delta(df, 'core_downgrades')
+    
+    # Display net awesome KPIs
+    awesome_kpi_cols = st.columns(3)
+    awesome_kpis = [
+        ('Net Awesome', net_upgrades_latest, net_upgrades_delta),
+        ('New Awesome', upgrades_latest, upgrades_delta),
+        ('Lost Awesome', downgrades_latest, downgrades_delta),
+    ]
+    
+    for col, (label, val, delta) in zip(awesome_kpi_cols, awesome_kpis):
+        with col:
+            if val is None or pd.isna(val):
+                st.metric(label=label, value='—', delta=None)
+            else:
+                delta_color = 'inverse' if label == 'Lost Awesome' else 'normal'
+                st.metric(
+                    label=label,
+                    value=f"{int(val):,}",
+                    delta=(int(delta) if delta is not None and pd.notna(delta) else None),
+                    delta_color=delta_color
+                )
+    
+    # Create line chart for net awesome trend
+    fig_awesome = px.line(
+        df,
+        x='week',
+        y='core_net_upgrades',
+        markers=True
+    )
+    
+    # Add data labels on points
+    fig_awesome.update_traces(
+        textposition='top center',
+        texttemplate='%{y:,.0f}',
+        mode='lines+markers+text'
+    )
+    
+    # Add horizontal line at y=0 for reference
+    fig_awesome.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
+    
+    # Apply styling
+    fig_awesome.update_layout(
+        height=340,
+        showlegend=False,
+        margin=dict(l=10, r=10, t=30, b=0),
+        xaxis_title='Week',
+        yaxis_title='Net Awesome Users',
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        yaxis=dict(tickformat=',')
+    )
+    
+    fig_awesome.update_xaxes(showgrid=False)
+    fig_awesome.update_yaxes(showgrid=False)
+    
+    st.plotly_chart(fig_awesome, use_container_width=True)
+    
+    # Monthly Growth Rate — Free vs Awesome
+    st.subheader('Monthly Growth Rate — Free vs Awesome')
+    st.caption('(This month\'s users – Last month\'s users) ÷ Last month\'s users')
+    
+    # Get monthly metrics data
+    monthly_df = run_query(monthly_core_metrics)
+    
+    if monthly_df.empty:
+        st.info('No monthly data available yet.')
+        return
+    
+    # Convert month to datetime and sort
+    monthly_df['month_date'] = pd.to_datetime(monthly_df['month'] + '-01')
+    monthly_df = monthly_df.sort_values('month_date')
+    
+    # Filter out rows where we don't have growth rates (first month)
+    monthly_df_filtered = monthly_df[monthly_df['total_growth_rate_pct'].notna()].copy()
+    
+    if monthly_df_filtered.empty:
+        st.info('Not enough monthly data to calculate growth rates yet.')
+        return
+    
+    # KPI for latest month growth rates with deltas
+    if not monthly_df_filtered.empty:
+        latest_month = monthly_df_filtered.iloc[-1]
+        
+        # Calculate deltas (change in growth rate from previous month)
+        prev_month = monthly_df_filtered.iloc[-2] if len(monthly_df_filtered) >= 2 else None
+        
+        def calculate_growth_delta(current_rate, prev_rate):
+            if prev_month is None or pd.isna(current_rate) or pd.isna(prev_rate):
+                return None
+            return current_rate - prev_rate
+        
+        total_delta = calculate_growth_delta(
+            latest_month['total_growth_rate_pct'], 
+            prev_month['total_growth_rate_pct'] if prev_month is not None else None
         )
-        fig.update_layout(xaxis_title='Week', yaxis_title='Net adds')
-        st.plotly_chart(fig, use_container_width=True)
-
-    # Net growth WoW — Awesome (data preloaded above)
-
-    if df_net_awesome.empty:
-        st.info('No weekly net growth (Awesome) data available.')
-    else:
-        df_net_awesome = _format_week(df_net_awesome, 'week_start')
-        st.subheader('Net growth WoW — Awesome')
-        fig = px.line(
-            df_net_awesome,
-            x='week_start',
-            y='net_weekly_change',
-            markers=True,
-            title='Weekly net adds (Awesome)'
+        free_delta = calculate_growth_delta(
+            latest_month['free_growth_rate_pct'], 
+            prev_month['free_growth_rate_pct'] if prev_month is not None else None
         )
-        fig.update_layout(xaxis_title='Week', yaxis_title='Net adds')
-        st.plotly_chart(fig, use_container_width=True)
-
-    # Net growth MoM (%) — Free vs Awesome, with overall (data preloaded above)
-
-    if df_monthly.empty:
-        st.info('No monthly growth data available.')
-    else:
-        if 'monthly_date' in df_monthly.columns:
-            df_monthly['monthly_date'] = pd.to_datetime(df_monthly['monthly_date'])
-            df_monthly = df_monthly.sort_values('monthly_date')
-            df_monthly = df_monthly.tail(12)
-
-        # Derive Free vs Awesome series and growth %
-        df_monthly['free_active_users'] = (
-            df_monthly['total_active_installed_users'] - df_monthly['total_active_upgraded_users']
+        awesome_delta = calculate_growth_delta(
+            latest_month['awesome_growth_rate_pct'], 
+            prev_month['awesome_growth_rate_pct'] if prev_month is not None else None
         )
-
-        # Compute percentage change for Free and Awesome
-        df_monthly['free_growth_pct'] = df_monthly['free_active_users'].pct_change() * 100.0
-        df_monthly['awesome_growth_pct'] = df_monthly['total_active_upgraded_users'].pct_change() * 100.0
-
-        # Overall combined: use install growth rate already computed in the model
-        df_monthly['overall_growth_pct'] = df_monthly['monthly_install_growth_rate']
-
-        st.subheader('Net growth MoM (%) — Free vs Awesome, with overall')
-
-        # Grouped bars for Free + Awesome
-        df_bar = df_monthly[['monthly_date', 'free_growth_pct', 'awesome_growth_pct']].melt(
-            id_vars='monthly_date',
-            var_name='segment',
-            value_name='growth_pct'
-        )
-        df_bar['segment'] = df_bar['segment'].map({
-            'free_growth_pct': 'Free',
-            'awesome_growth_pct': 'Awesome'
-        })
-
-        fig_bar = px.bar(
-            df_bar,
-            x='monthly_date',
-            y='growth_pct',
-            color='segment',
-            barmode='group',
-            title='Monthly growth % (Free vs Awesome)'
-        )
-        fig_bar.update_layout(xaxis_title='Month', yaxis_title='Growth %')
-
-        # Overlay overall line
-        fig_bar.add_scatter(
-            x=df_monthly['monthly_date'],
-            y=df_monthly['overall_growth_pct'],
-            mode='lines+markers',
-            name='Overall'
-        )
-
-        st.plotly_chart(fig_bar, use_container_width=True)
-
-    # New installs WoW (gross), grouped by source if available (data preloaded above)
-
-    if df_installs.empty:
-        st.info('No weekly gross installs data available.')
-    else:
-        df_installs = _format_week(df_installs, 'week_start')
-        st.subheader('New installs WoW (gross) — by source')
-
-        if 'source' in df_installs.columns:
-            # Expect columns: week_start, source, gross_installs
-            df_grouped = df_installs.copy()
-            fig = px.bar(
-                df_grouped,
-                x='week_start',
-                y='gross_installs',
-                color='source',
-                barmode='group',
-                title='Weekly new installs by source'
+        
+        monthly_kpi_cols = st.columns(3)
+        with monthly_kpi_cols[0]:
+            st.metric(
+                label='Overall Growth',
+                value=f"{latest_month['total_growth_rate_pct']:.1f}%" if pd.notna(latest_month['total_growth_rate_pct']) else '—',
+                delta=f"{total_delta:.1f}pp" if total_delta is not None else None
             )
-            fig.update_layout(xaxis_title='Week', yaxis_title='Installs')
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info('Source breakdown not available in current query; showing totals only.')
-            fig = px.bar(
-                df_installs,
-                x='week_start',
-                y='gross_installs',
-                title='Weekly new installs (total)'
+        with monthly_kpi_cols[1]:
+            st.metric(
+                label='Free Growth',
+                value=f"{latest_month['free_growth_rate_pct']:.1f}%" if pd.notna(latest_month['free_growth_rate_pct']) else '—',
+                delta=f"{free_delta:.1f}pp" if free_delta is not None else None
             )
-            fig.update_layout(xaxis_title='Week', yaxis_title='Installs')
-            st.plotly_chart(fig, use_container_width=True)
-
-    # New Awesome WoW users by source — requires route/source breakdown
-    st.subheader('New Awesome WoW users by source')
-    st.info('Stacked source breakdown (direct vs Free→trial→Awesome vs reopened) to be added when source fields are available. For now, see the Awesome net growth chart above.')
-
-
+        with monthly_kpi_cols[2]:
+            st.metric(
+                label='Awesome Growth',
+                value=f"{latest_month['awesome_growth_rate_pct']:.1f}%" if pd.notna(latest_month['awesome_growth_rate_pct']) else '—',
+                delta=f"{awesome_delta:.1f}pp" if awesome_delta is not None else None
+            )
+    
+    # Create combined bar and line chart
+    fig_monthly = go.Figure()
+    
+    # Add Free growth rate bars
+    fig_monthly.add_trace(go.Bar(
+        x=monthly_df_filtered['month'],
+        y=monthly_df_filtered['free_growth_rate_pct'],
+        name='Free Growth %',
+        marker_color='#b8b8ff',
+        yaxis='y'
+    ))
+    
+    # Add Awesome growth rate bars
+    fig_monthly.add_trace(go.Bar(
+        x=monthly_df_filtered['month'],
+        y=monthly_df_filtered['awesome_growth_rate_pct'],
+        name='Awesome Growth %',
+        marker_color='#72a7ff',
+        yaxis='y'
+    ))
+    
+    # Add Overall growth rate line (overlay)
+    fig_monthly.add_trace(go.Scatter(
+        x=monthly_df_filtered['month'],
+        y=monthly_df_filtered['total_growth_rate_pct'],
+        mode='lines+markers',
+        name='Overall Growth %',
+        line=dict(color='#f59db1', width=3),
+        marker=dict(size=8),
+        yaxis='y'
+    ))
+    
+    # Update layout for combined chart
+    fig_monthly.update_layout(
+        height=400,
+        barmode='group',
+        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='left', x=0),
+        margin=dict(l=10, r=10, t=30, b=0),
+        xaxis_title='Month',
+        yaxis_title='Growth Rate (%)',
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        yaxis=dict(tickformat='.1f')
+    )
+    
+    # Add horizontal line at y=0 for reference
+    fig_monthly.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
+    
+    fig_monthly.update_xaxes(showgrid=False)
+    fig_monthly.update_yaxes(showgrid=False)
+    
+    st.plotly_chart(fig_monthly, use_container_width=True)
