@@ -3,13 +3,15 @@ WITH date_filter AS (
   SELECT 
     -- Get the start of the current week (Monday)
     DATE_TRUNC(CURRENT_DATE(), WEEK(MONDAY)) AS current_week_start,
-    -- Get 52 weeks ago from the start of last completed week
-    DATE_SUB(DATE_TRUNC(CURRENT_DATE(), WEEK(MONDAY)), INTERVAL 53 WEEK) AS start_date,
+    -- Get 52 weeks ago from the start of current week
+    DATE_SUB(DATE_TRUNC(CURRENT_DATE(), WEEK(MONDAY)), INTERVAL 52 WEEK) AS start_date,
     -- Last day of the previous completed week (Sunday)
     DATE_SUB(DATE_TRUNC(CURRENT_DATE(), WEEK(MONDAY)), INTERVAL 1 DAY) AS last_completed_day
 ),
 
-page_locations AS (
+-- Combine both data sources first
+combined_events AS (
+  -- Historical data
   SELECT 
     event_date,
     event_timestamp,
@@ -17,6 +19,22 @@ page_locations AS (
     (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'page_location') AS page_location
   FROM 
     `review-site-307404.analytics_476622290.events_*`,
+    date_filter
+  WHERE 
+    event_name = 'add_to_cart'
+    AND PARSE_DATE('%Y%m%d', event_date) >= date_filter.start_date
+    AND PARSE_DATE('%Y%m%d', event_date) <= date_filter.last_completed_day
+
+  UNION ALL
+
+  -- Active data
+  SELECT 
+    event_date,
+    event_timestamp,
+    user_pseudo_id,
+    (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'page_location') AS page_location
+  FROM 
+    `review-site-307404.analytics_507110596.events_*`,
     date_filter
   WHERE 
     event_name = 'add_to_cart'
@@ -39,7 +57,7 @@ parsed_params AS (
     REGEXP_EXTRACT(page_location, r'utm_source=([^&]+)') AS utm_source_parsed,
     REGEXP_EXTRACT(page_location, r'[?&]locale=([^&]+)') AS locale_parsed
   FROM 
-    page_locations
+    combined_events
 ),
 
 aggregated_fields AS (
@@ -142,7 +160,7 @@ aggregated_fields AS (
 )
 
 SELECT 
-  count(*) as events_count,
+  COUNT(*) as events_count,
   event_date,
   st_source_parsed,
   surface_type_parsed,
@@ -159,7 +177,6 @@ SELECT
   locale_aggregated
 FROM 
   aggregated_fields
-
 GROUP BY 2,3,4,5,6,7,8,9,10,11,12,13,14,15
 
 """
@@ -170,13 +187,15 @@ WITH date_filter AS (
   SELECT 
     -- Get the start of the current week (Monday)
     DATE_TRUNC(CURRENT_DATE(), WEEK(MONDAY)) AS current_week_start,
-    -- Get 52 weeks ago from the start of last completed week
-    DATE_SUB(DATE_TRUNC(CURRENT_DATE(), WEEK(MONDAY)), INTERVAL 53 WEEK) AS start_date,
+    -- Get 52 weeks ago from the start of current week
+    DATE_SUB(DATE_TRUNC(CURRENT_DATE(), WEEK(MONDAY)), INTERVAL 52 WEEK) AS start_date,
     -- Last day of the previous completed week (Sunday)
     DATE_SUB(DATE_TRUNC(CURRENT_DATE(), WEEK(MONDAY)), INTERVAL 1 DAY) AS last_completed_day
 ),
 
-page_locations AS (
+-- Combine both data sources first
+combined_events AS (
+  -- Historical data
   SELECT 
     event_date,
     event_timestamp,
@@ -184,6 +203,22 @@ page_locations AS (
     (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'page_location') AS page_location
   FROM 
     `review-site-307404.analytics_476622290.events_*`,
+    date_filter
+  WHERE 
+    event_name = 'view_item'
+    AND PARSE_DATE('%Y%m%d', event_date) >= date_filter.start_date
+    AND PARSE_DATE('%Y%m%d', event_date) <= date_filter.last_completed_day
+
+  UNION ALL
+
+  -- Active data
+  SELECT 
+    event_date,
+    event_timestamp,
+    user_pseudo_id,
+    (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'page_location') AS page_location
+  FROM 
+    `review-site-307404.analytics_507110596.events_*`,
     date_filter
   WHERE 
     event_name = 'view_item'
@@ -206,7 +241,7 @@ parsed_params AS (
     REGEXP_EXTRACT(page_location, r'utm_source=([^&]+)') AS utm_source_parsed,
     REGEXP_EXTRACT(page_location, r'[?&]locale=([^&]+)') AS locale_parsed
   FROM 
-    page_locations
+    combined_events
 ),
 
 aggregated_fields AS (
@@ -309,7 +344,7 @@ aggregated_fields AS (
 )
 
 SELECT 
-  count(*) as events_count,
+  COUNT(*) as events_count,
   event_date,
   st_source_parsed,
   surface_type_parsed,
@@ -326,6 +361,5 @@ SELECT
   locale_aggregated
 FROM 
   aggregated_fields
-
 GROUP BY 2,3,4,5,6,7,8,9,10,11,12,13,14,15
 """
