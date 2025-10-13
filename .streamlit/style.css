@@ -20,7 +20,6 @@
 
 /* Title styling */
 .login-title {
-    color: #262730;
     font-size: 2.5rem;
     font-weight: bold;
     margin-bottom: 1rem;
@@ -28,9 +27,9 @@
 
 /* Subtitle styling */
 .login-subtitle {
-    color: #4A4A4A;
     font-size: 1.2rem;
     margin-bottom: 2rem;
+    opacity: 0.8;
 }
 
 /* Button styling */
