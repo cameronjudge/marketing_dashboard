@@ -13,6 +13,7 @@ from src.pages.dashboards.churn import churn_page
 from src.pages.dashboards.onboarding import onboarding_page
 from src.pages.dashboards.google_analytics import google_analytics_page
 from src.pages.dashboards.general_metrics import general_metrics_page
+from src.pages.dashboards.integrations import integrations_page
 from src.auth.login import user_login
 
 
@@ -39,6 +40,7 @@ def main() -> None:
     onboarding_pg = st.Page(onboarding_page, title='Onboarding', icon='🚀')
     google_analytics_pg = st.Page(google_analytics_page, title='Listing Analytics', icon='🟢')
     general_metrics_pg = st.Page(general_metrics_page, title='General Metrics', icon='🎯')
+    integrations_pg = st.Page(integrations_page, title='Integrations & Partnerships', icon='🔌')
 
     pages = {
         "Home": [st.Page(home_page, title='Home', icon='🏠')],
@@ -53,6 +55,7 @@ def main() -> None:
             churn_pg,
             onboarding_pg,
             google_analytics_pg,
+            integrations_pg,
         ],
     }
 
@@ -68,6 +71,7 @@ def main() -> None:
         churn_pg,
         onboarding_pg,
         google_analytics_pg,
+        integrations_pg,
     }
 
     if pg in dashboard_pages:
