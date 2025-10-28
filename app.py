@@ -45,10 +45,8 @@ def safe_plotly_chart(figure_or_data, width='stretch', config=None, **kwargs):
     # Always use our safe config, ignoring any passed config to avoid conflicts
     final_config = SAFE_PLOTLY_CONFIG.copy()
     
-    # Remove any config from kwargs to prevent conflicts
-    kwargs.pop('config', None)
-    
-    return _original_plotly_chart(figure_or_data, width=width, config=final_config, **kwargs)
+    # Only pass the allowed parameters (no **kwargs as they're deprecated)
+    return _original_plotly_chart(figure_or_data, width=width, config=final_config)
 
 # Replace the original function
 st.plotly_chart = safe_plotly_chart
