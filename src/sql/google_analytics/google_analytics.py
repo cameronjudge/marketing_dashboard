@@ -1,4 +1,4 @@
-ga_add_to_cart = """
+ga_installs = """
 WITH date_filter AS (
   SELECT 
     -- Get the start of the current week (Monday)

@@ -1,8 +1,10 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from src.db.bigquery_connection import run_query
-from src.sql.google_analytics.google_analytics import ga_add_to_cart, ga_view_app
+from src.sql.google_analytics.google_analytics import ga_installs, ga_view_app
 
 def google_analytics_page() -> None:
     st.set_page_config(
@@ -12,7 +14,7 @@ def google_analytics_page() -> None:
     
     st.title('Listing Analytics')
     
-    df = run_query(ga_add_to_cart)
+    df = run_query(ga_installs)
     if df.empty:
         st.info('No data available yet.')
     else:
@@ -24,9 +26,9 @@ def google_analytics_page() -> None:
         views_df = run_query(ga_view_app)
         
         # Function to calculate week-over-week metrics
-        def calculate_wow_metrics(df_carts, df_views):
+        def calculate_wow_metrics(df_installs, df_views):
             # Aggregate weekly data for both datasets
-            weekly_carts = df_carts.groupby('week')['events_count'].sum().reset_index().sort_values('week')
+            weekly_installs = df_installs.groupby('week')['events_count'].sum().reset_index().sort_values('week')
             
             if not df_views.empty:
                 df_views['event_date'] = pd.to_datetime(df_views['event_date'], format='%Y%m%d')
@@ -36,13 +38,13 @@ def google_analytics_page() -> None:
                 weekly_views = pd.DataFrame(columns=['week', 'events_count'])
             
             # Get last two weeks of data
-            if len(weekly_carts) >= 2:
-                last_week_carts = weekly_carts.iloc[-1]['events_count']
-                prev_week_carts = weekly_carts.iloc[-2]['events_count']
-                carts_delta = last_week_carts - prev_week_carts
+            if len(weekly_installs) >= 2:
+                last_week_installs = weekly_installs.iloc[-1]['events_count']
+                prev_week_installs = weekly_installs.iloc[-2]['events_count']
+                installs_delta = last_week_installs - prev_week_installs
             else:
-                last_week_carts = weekly_carts.iloc[-1]['events_count'] if len(weekly_carts) > 0 else 0
-                carts_delta = None
+                last_week_installs = weekly_installs.iloc[-1]['events_count'] if len(weekly_installs) > 0 else 0
+                installs_delta = None
             
             if len(weekly_views) >= 2:
                 last_week_views = weekly_views.iloc[-1]['events_count']
@@ -54,26 +56,26 @@ def google_analytics_page() -> None:
             
             # Calculate conversion rates
             if last_week_views > 0:
-                last_week_conversion = (last_week_carts / last_week_views) * 100
+                last_week_conversion = (last_week_installs / last_week_views) * 100
             else:
                 last_week_conversion = 0
                 
-            if len(weekly_views) >= 2 and len(weekly_carts) >= 2 and prev_week_views > 0:
-                prev_week_conversion = (prev_week_carts / prev_week_views) * 100
+            if len(weekly_views) >= 2 and len(weekly_installs) >= 2 and prev_week_views > 0:
+                prev_week_conversion = (prev_week_installs / prev_week_views) * 100
                 conversion_delta = last_week_conversion - prev_week_conversion
             else:
                 conversion_delta = None
             
-            # Total events (views + carts)
-            total_events = last_week_views + last_week_carts
-            if views_delta is not None and carts_delta is not None:
-                total_delta = views_delta + carts_delta
+            # Total events (views + installs)
+            total_events = last_week_views + last_week_installs
+            if views_delta is not None and installs_delta is not None:
+                total_delta = views_delta + installs_delta
             else:
                 total_delta = None
             
             return {
                 'views': (last_week_views, views_delta),
-                'carts': (last_week_carts, carts_delta),
+                'installs': (last_week_installs, installs_delta),
                 'conversion': (last_week_conversion, conversion_delta),
                 'total': (total_events, total_delta)
             }
@@ -90,7 +92,7 @@ def google_analytics_page() -> None:
             kpi_cols = st.columns(4)
             kpis = [
                 ('Views', metrics['views'][0], metrics['views'][1]),
-                ('Add to Carts', metrics['carts'][0], metrics['carts'][1]),
+                ('Installs', metrics['installs'][0], metrics['installs'][1]),
                 ('Conversion Rate', metrics['conversion'][0], metrics['conversion'][1]),
             ]
             
@@ -247,7 +249,7 @@ def google_analytics_page() -> None:
             fig.update_xaxes(showgrid=False)
             fig.update_yaxes(showgrid=False)
 
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
             
             # New charts section
             st.divider()
@@ -276,24 +278,24 @@ def google_analytics_page() -> None:
                 weekly_views = filtered_views_df.groupby('week')['events_count'].sum().reset_index()
                 weekly_views.columns = ['week', 'views']
                 
-                weekly_carts = filtered_df.groupby('week')['events_count'].sum().reset_index()
-                weekly_carts.columns = ['week', 'add_to_carts']
+                weekly_installs = filtered_df.groupby('week')['events_count'].sum().reset_index()
+                weekly_installs.columns = ['week', 'installs']
                 
-                # Merge views and carts data
-                combined_df = pd.merge(weekly_views, weekly_carts, on='week', how='outer').fillna(0)
+                # Merge views and installs data
+                combined_df = pd.merge(weekly_views, weekly_installs, on='week', how='outer').fillna(0)
                 
                 # Create two columns for the new charts
                 col1, col2 = st.columns(2)
                 
                 with col1:
-                    # Chart 1: Views and Add to Carts tracking
+                    # Chart 1: Views and Installs tracking
                     fig_tracking = px.line(
-                        combined_df.melt(id_vars=['week'], value_vars=['views', 'add_to_carts'], 
+                        combined_df.melt(id_vars=['week'], value_vars=['views', 'installs'], 
                                     var_name='metric', value_name='count'),
                         x='week',
                         y='count',
                         color='metric',
-                        title='Weekly Views vs Add to Carts',
+                        title='Weekly Views vs Installs',
                         markers=True
                     )
                     
@@ -323,17 +325,17 @@ def google_analytics_page() -> None:
                     fig_tracking.update_xaxes(showgrid=False)
                     fig_tracking.update_yaxes(showgrid=False)
                     
-                    st.plotly_chart(fig_tracking, use_container_width=True)
+                    st.plotly_chart(fig_tracking, width='stretch')
                 
                 with col2:
-                    # Chart 2: Conversion rate (add to cart / views)
-                    combined_df['conversion_rate'] = (combined_df['add_to_carts'] / combined_df['views'] * 100).fillna(0)
+                    # Chart 2: Conversion rate (installs / views)
+                    combined_df['conversion_rate'] = (combined_df['installs'] / combined_df['views'] * 100).fillna(0)
                     
                     fig_conversion = px.line(
                         combined_df,
                         x='week',
                         y='conversion_rate',
-                        title='Weekly Add to Cart Conversion Rate (%)',
+                        title='Weekly Install Conversion Rate (%)',
                         markers=True
                     )
                     
@@ -357,43 +359,130 @@ def google_analytics_page() -> None:
                     fig_conversion.update_xaxes(showgrid=False)
                     fig_conversion.update_yaxes(showgrid=False, range=[0, None])
                     
-                    st.plotly_chart(fig_conversion, use_container_width=True)
+                    st.plotly_chart(fig_conversion, width='stretch')
             
             # Sources breakdown table
-            st.subheader('Sources Breakdown')
+            st.subheader('Medium Breakdown')
             
-            # Date filter for table
+            # Date filter for table - default to last completed week
             col1, col2 = st.columns(2)
+            
+            # Calculate last completed week (Monday to Sunday)
+            today = pd.Timestamp.now().normalize()
+            days_since_monday = today.weekday()  # Monday = 0, Sunday = 6
+            last_monday = today - pd.Timedelta(days=days_since_monday + 7)  # Previous week's Monday
+            last_sunday = last_monday + pd.Timedelta(days=6)  # Previous week's Sunday
+            
+            # Get available date range from data
+            min_date = filtered_df['event_date'].min().date()
+            max_date = filtered_df['event_date'].max().date()
+            
+            # Use last completed week as default, but allow user to change
+            default_start = max(last_monday.date(), min_date)
+            default_end = min(last_sunday.date(), max_date)
+            
             with col1:
-                min_date = filtered_df['event_date'].min().date()
-                max_date = filtered_df['event_date'].max().date()
-                start_date = st.date_input('Start Date', value=min_date, min_value=min_date, max_value=max_date)
+                start_date = st.date_input('Start Date', value=default_start, min_value=min_date, max_value=max_date)
             
             with col2:
-                end_date = st.date_input('End Date', value=max_date, min_value=min_date, max_value=max_date)
+                end_date = st.date_input('End Date', value=default_end, min_value=min_date, max_value=max_date)
             
-            # Filter by date range
+            # Filter by date range for current period
             table_df = filtered_df[
                 (filtered_df['event_date'].dt.date >= start_date) & 
                 (filtered_df['event_date'].dt.date <= end_date)
             ]
             
-            # Aggregate by source
-            sources_table = table_df.groupby('source_aggregated')['events_count'].sum().reset_index()
-            sources_table = sources_table.sort_values('events_count', ascending=False)
-            sources_table.columns = ['Source', 'Events Count']
+            # Calculate previous period for WoW comparison
+            period_length = (pd.Timestamp(end_date) - pd.Timestamp(start_date)).days + 1
+            prev_start_date = pd.Timestamp(start_date) - pd.Timedelta(days=period_length)
+            prev_end_date = pd.Timestamp(start_date) - pd.Timedelta(days=1)
             
-            st.dataframe(sources_table, use_container_width=True)
+            # Filter for previous period
+            prev_table_df = filtered_df[
+                (filtered_df['event_date'].dt.date >= prev_start_date.date()) & 
+                (filtered_df['event_date'].dt.date <= prev_end_date.date())
+            ]
+            
+            # Aggregate current period by source
+            current_sources = table_df.groupby('source_aggregated')['events_count'].sum().reset_index()
+            current_sources.columns = ['Source', 'Current_Events']
+            
+            # Aggregate previous period by source
+            prev_sources = prev_table_df.groupby('source_aggregated')['events_count'].sum().reset_index()
+            prev_sources.columns = ['Source', 'Previous_Events']
+            
+            # Merge current and previous data
+            sources_table = pd.merge(current_sources, prev_sources, on='Source', how='left')
+            sources_table['Previous_Events'] = sources_table['Previous_Events'].fillna(0)
+            
+            # Calculate WoW delta
+            sources_table['WoW_Delta'] = sources_table['Current_Events'] - sources_table['Previous_Events']
+            sources_table['WoW_Percent'] = ((sources_table['Current_Events'] - sources_table['Previous_Events']) / 
+                                          sources_table['Previous_Events'].replace(0, 1) * 100).round(1)
+            
+            # Handle cases where previous period had 0 events
+            sources_table.loc[sources_table['Previous_Events'] == 0, 'WoW_Percent'] = None
+            
+            # Format the final table
+            sources_table = sources_table.sort_values('Current_Events', ascending=False)
+            
+            # Create display table with formatted columns
+            display_table = sources_table[['Source', 'Current_Events', 'WoW_Delta', 'WoW_Percent']].copy()
+            display_table.columns = ['Source', 'Events Count', 'WoW Δ', 'WoW %']
+            
+            # Format the WoW % column to show percentage with proper handling of None values
+            display_table['WoW %'] = display_table['WoW %'].apply(
+                lambda x: f"{x:.1f}%" if pd.notna(x) else "N/A"
+            )
+            
+            st.dataframe(display_table, width='stretch')
         
         with overview_trends:
             st.subheader('Trends Analysis')
             
-            # Prepare data for trends - combine both add_to_cart and view_item data
+            # Installs - last 30 days
+            st.subheader('Installs - last 30 days')
+            
+            # Filter to installs events only (last 30 days)
+            installs_last_30 = df[df['event_date'] >= (df['event_date'].max() - pd.Timedelta(days=30))].copy()
+            
+            # Aggregate by date
+            installs_daily = installs_last_30.groupby('event_date')['events_count'].sum().reset_index()
+            
+            fig_installs = px.line(
+                installs_daily,
+                x='event_date',
+                y='events_count',
+                title='Installs - last 30 days',
+                markers=True
+            )
+            
+            fig_installs.update_traces(line_color='#2E8B57')  # Sea green color
+            
+            fig_installs.update_layout(
+                showlegend=False,
+                margin=dict(l=10, r=10, t=30, b=10),
+                xaxis_title=None,
+                yaxis_title=None,
+                plot_bgcolor="rgba(0,0,0,0)",
+                paper_bgcolor="rgba(0,0,0,0)"
+            )
+            
+            fig_installs.update_xaxes(showgrid=False)
+            fig_installs.update_yaxes(showgrid=False)
+            
+            st.plotly_chart(fig_installs, width='stretch')
+            
+            st.divider()
+            
+            # Prepare data for trends - combine both installs and view_item data
             combined_trends_df = df.copy()
-            combined_trends_df['event_type'] = 'add_to_cart'
+            combined_trends_df['event_type'] = 'installs'
             
             if not views_df.empty:
                 views_trends_df = views_df.copy()
+                views_trends_df['event_date'] = pd.to_datetime(views_trends_df['event_date'], format='%Y%m%d')
                 views_trends_df['event_type'] = 'view_item'
                 combined_trends_df = pd.concat([combined_trends_df, views_trends_df], ignore_index=True)
             
@@ -404,17 +493,20 @@ def google_analytics_page() -> None:
             last_30_days = combined_trends_df['event_date'] >= (combined_trends_df['event_date'].max() - pd.Timedelta(days=30))
             language_df = combined_trends_df[last_30_days].copy()
             
+            # Add week column for weekly aggregation
+            language_df['week'] = language_df['event_date'].dt.to_period('W').dt.start_time
+            
             # Get top 10 languages by total events
             top_languages = language_df.groupby('locale_aggregated')['events_count'].sum().nlargest(10).index.tolist()
             language_df = language_df[language_df['locale_aggregated'].isin(top_languages)]
             
-            # Aggregate by date and language
-            language_daily = language_df.groupby(['event_date', 'locale_aggregated'])['events_count'].sum().reset_index()
+            # Aggregate by week and language
+            language_weekly = language_df.groupby(['week', 'locale_aggregated'])['events_count'].sum().reset_index()
             
             # Create language trends chart
             fig_language = px.line(
-                language_daily,
-                x='event_date',
+                language_weekly,
+                x='week',
                 y='events_count',
                 color='locale_aggregated',
                 title='Language - Last 30 days (top 10)',
@@ -440,45 +532,121 @@ def google_analytics_page() -> None:
             fig_language.update_xaxes(showgrid=False)
             fig_language.update_yaxes(showgrid=False)
             
-            st.plotly_chart(fig_language, use_container_width=True)
+            st.plotly_chart(fig_language, width='stretch')
             
-            # Individual language charts (2x5 grid)
+            # Individual language charts with WoW data and conversion rates
             st.subheader('Individual Language Trends')
+            st.caption("📊 Conversion Rate = (Installs from ga_installs ÷ Views from ga_view_app) × 100 by language and week")
             
             # Create 2 columns for the grid
             col1, col2 = st.columns(2)
             
             for i, language in enumerate(top_languages):
-                lang_data = language_daily[language_daily['locale_aggregated'] == language]
+                # Get installs data for this language (from ga_installs - last 30 days)
+                installs_lang_data = df[
+                    (df['locale_aggregated'] == language) & 
+                    (df['event_date'] >= (df['event_date'].max() - pd.Timedelta(days=30)))
+                ].copy()
+                installs_lang_data['week'] = installs_lang_data['event_date'].dt.to_period('W').dt.start_time
+                installs_weekly = installs_lang_data.groupby('week')['events_count'].sum().reset_index()
+                installs_weekly = installs_weekly.rename(columns={'events_count': 'installs_count'})
                 
-                fig_individual = px.line(
-                    lang_data,
-                    x='event_date',
-                    y='events_count',
-                    title=language,
-                    markers=True
+                # Get views data for this language (from ga_view_app - last 30 days)
+                if not views_df.empty:
+                    views_df_processed = views_df.copy()
+                    views_df_processed['event_date'] = pd.to_datetime(views_df_processed['event_date'], format='%Y%m%d')
+                    views_lang_data = views_df_processed[
+                        (views_df_processed['locale_aggregated'] == language) & 
+                        (views_df_processed['event_date'] >= (views_df_processed['event_date'].max() - pd.Timedelta(days=30)))
+                    ].copy()
+                    views_lang_data['week'] = views_lang_data['event_date'].dt.to_period('W').dt.start_time
+                    views_weekly = views_lang_data.groupby('week')['events_count'].sum().reset_index()
+                    views_weekly = views_weekly.rename(columns={'events_count': 'views_count'})
+                    
+                    # Merge installs and views data properly
+                    combined_data = pd.merge(installs_weekly, views_weekly, on='week', how='outer').fillna(0)
+                    
+                    # Calculate proper conversion rate
+                    combined_data['conversion_rate'] = combined_data.apply(
+                        lambda row: (row['installs_count'] / row['views_count'] * 100) 
+                        if row['views_count'] > 0 
+                        else 0, axis=1
+                    ).round(2)
+                else:
+                    combined_data = installs_weekly.copy()
+                    combined_data = combined_data.rename(columns={'installs_count': 'installs_count'})
+                    combined_data['views_count'] = 0
+                    combined_data['conversion_rate'] = 0
+                
+                # Calculate WoW change for installs
+                combined_data = combined_data.sort_values('week')
+                combined_data['prev_week_installs'] = combined_data['installs_count'].shift(1)
+                combined_data['wow_change'] = ((combined_data['installs_count'] - combined_data['prev_week_installs']) / combined_data['prev_week_installs'] * 100).round(1)
+                
+                # Create subplot with secondary y-axis
+                fig_individual = make_subplots(
+                    specs=[[{"secondary_y": True}]],
+                    subplot_titles=[language]
                 )
                 
+                # Add bar chart for installs (left axis)
+                fig_individual.add_trace(
+                    go.Bar(
+                        x=combined_data['week'],
+                        y=combined_data['installs_count'],
+                        name='Installs',
+                        marker_color='#1f77b4',
+                        text=combined_data['wow_change'].apply(lambda x: f"{x:+.1f}%" if pd.notna(x) else ""),
+                        textposition='outside',
+                        hovertemplate='<b>Week:</b> %{x}<br><b>Installs:</b> %{y}<br><b>WoW Change:</b> %{text}<extra></extra>'
+                    ),
+                    secondary_y=False
+                )
+                
+                # Add line chart for conversion rate (right axis) if data available
+                if not views_df.empty and 'conversion_rate' in combined_data.columns:
+                    fig_individual.add_trace(
+                        go.Scatter(
+                            x=combined_data['week'],
+                            y=combined_data['conversion_rate'],
+                            mode='lines+markers',
+                            name='Conversion Rate',
+                            line=dict(color='#ff7f0e', width=2),
+                            marker=dict(size=6),
+                            hovertemplate='<b>Week:</b> %{x}<br><b>Conversion Rate:</b> %{y:.2f}%<br><b>Views:</b> %{customdata[0]}<br><b>Installs:</b> %{customdata[1]}<extra></extra>',
+                            customdata=list(zip(combined_data['views_count'], combined_data['installs_count']))
+                        ),
+                        secondary_y=True
+                    )
+                
+                # Update layout
                 fig_individual.update_layout(
-                    showlegend=False,
-                    margin=dict(l=10, r=10, t=30, b=10),
-                    xaxis_title=None,
-                    yaxis_title=None,
+                    showlegend=True,
+                    margin=dict(l=10, r=10, t=40, b=10),
                     plot_bgcolor="rgba(0,0,0,0)",
                     paper_bgcolor="rgba(0,0,0,0)",
-                    height=300
+                    height=350,
+                    legend=dict(
+                        orientation='h',
+                        yanchor='top',
+                        y=-0.1,
+                        xanchor='center',
+                        x=0.5
+                    )
                 )
                 
-                fig_individual.update_xaxes(showgrid=False)
-                fig_individual.update_yaxes(showgrid=False)
+                # Set y-axes titles
+                fig_individual.update_yaxes(title_text="Installs", secondary_y=False, showgrid=False)
+                fig_individual.update_yaxes(title_text="Conversion Rate (%)", secondary_y=True, showgrid=False)
+                fig_individual.update_xaxes(showgrid=False, title_text=None)
                 
                 # Alternate between columns
                 if i % 2 == 0:
                     with col1:
-                        st.plotly_chart(fig_individual, use_container_width=True)
+                        st.plotly_chart(fig_individual, width='stretch')
                 else:
                     with col2:
-                        st.plotly_chart(fig_individual, use_container_width=True)
+                        st.plotly_chart(fig_individual, width='stretch')
             
             # Medium Trends - Last 30 days
             st.subheader('Medium - Last 30 days')
@@ -518,77 +686,119 @@ def google_analytics_page() -> None:
             fig_medium_combined.update_xaxes(showgrid=False)
             fig_medium_combined.update_yaxes(showgrid=False)
             
-            st.plotly_chart(fig_medium_combined, use_container_width=True)
+            st.plotly_chart(fig_medium_combined, width='stretch')
             
-            # Individual medium charts
+            # Individual medium charts with WoW data and conversion rates
             st.subheader('Individual Medium Trends')
+            st.caption("📊 Conversion Rate = (Installs from ga_installs ÷ Views from ga_view_app) × 100 by medium and week")
             
             # Create grid layout for medium charts
             cols = st.columns(2)
             
             for i, medium in enumerate(all_mediums):
-                medium_data = medium_daily[medium_daily['medium_aggregated'] == medium]
+                # Get installs data for this medium (from ga_installs - last 30 days)
+                installs_medium_data = df[
+                    (df['medium_aggregated'] == medium) & 
+                    (df['event_date'] >= (df['event_date'].max() - pd.Timedelta(days=30)))
+                ].copy()
+                installs_medium_data['week'] = installs_medium_data['event_date'].dt.to_period('W').dt.start_time
+                installs_weekly = installs_medium_data.groupby('week')['events_count'].sum().reset_index()
+                installs_weekly = installs_weekly.rename(columns={'events_count': 'installs_count'})
                 
-                fig_medium_individual = px.line(
-                    medium_data,
-                    x='event_date',
-                    y='events_count',
-                    title=medium.replace('_', ' ').title(),
-                    markers=True
+                # Get views data for this medium (from ga_view_app - last 30 days)
+                if not views_df.empty:
+                    views_df_processed = views_df.copy()
+                    views_df_processed['event_date'] = pd.to_datetime(views_df_processed['event_date'], format='%Y%m%d')
+                    views_medium_data = views_df_processed[
+                        (views_df_processed['medium_aggregated'] == medium) & 
+                        (views_df_processed['event_date'] >= (views_df_processed['event_date'].max() - pd.Timedelta(days=30)))
+                    ].copy()
+                    views_medium_data['week'] = views_medium_data['event_date'].dt.to_period('W').dt.start_time
+                    views_weekly = views_medium_data.groupby('week')['events_count'].sum().reset_index()
+                    views_weekly = views_weekly.rename(columns={'events_count': 'views_count'})
+                    
+                    # Merge installs and views data properly
+                    combined_data = pd.merge(installs_weekly, views_weekly, on='week', how='outer').fillna(0)
+                    
+                    # Calculate proper conversion rate
+                    combined_data['conversion_rate'] = combined_data.apply(
+                        lambda row: (row['installs_count'] / row['views_count'] * 100) 
+                        if row['views_count'] > 0 
+                        else 0, axis=1
+                    ).round(2)
+                else:
+                    combined_data = installs_weekly.copy()
+                    combined_data['views_count'] = 0
+                    combined_data['conversion_rate'] = 0
+                
+                # Calculate WoW change for installs
+                combined_data = combined_data.sort_values('week')
+                combined_data['prev_week_installs'] = combined_data['installs_count'].shift(1)
+                combined_data['wow_change'] = ((combined_data['installs_count'] - combined_data['prev_week_installs']) / combined_data['prev_week_installs'] * 100).round(1)
+                
+                # Create subplot with secondary y-axis
+                fig_medium_individual = make_subplots(
+                    specs=[[{"secondary_y": True}]],
+                    subplot_titles=[medium.replace('_', ' ').title()]
                 )
                 
+                # Add bar chart for installs (left axis)
+                fig_medium_individual.add_trace(
+                    go.Bar(
+                        x=combined_data['week'],
+                        y=combined_data['installs_count'],
+                        name='Installs',
+                        marker_color='#2ca02c',
+                        text=combined_data['wow_change'].apply(lambda x: f"{x:+.1f}%" if pd.notna(x) else ""),
+                        textposition='outside',
+                        hovertemplate='<b>Week:</b> %{x}<br><b>Installs:</b> %{y}<br><b>WoW Change:</b> %{text}<extra></extra>'
+                    ),
+                    secondary_y=False
+                )
+                
+                # Add line chart for conversion rate (right axis) if data available
+                if not views_df.empty and 'conversion_rate' in combined_data.columns:
+                    fig_medium_individual.add_trace(
+                        go.Scatter(
+                            x=combined_data['week'],
+                            y=combined_data['conversion_rate'],
+                            mode='lines+markers',
+                            name='Conversion Rate',
+                            line=dict(color='#d62728', width=2),
+                            marker=dict(size=6),
+                            hovertemplate='<b>Week:</b> %{x}<br><b>Conversion Rate:</b> %{y:.2f}%<br><b>Views:</b> %{customdata[0]}<br><b>Installs:</b> %{customdata[1]}<extra></extra>',
+                            customdata=list(zip(combined_data['views_count'], combined_data['installs_count']))
+                        ),
+                        secondary_y=True
+                    )
+                
+                # Update layout
                 fig_medium_individual.update_layout(
-                    showlegend=False,
-                    margin=dict(l=10, r=10, t=30, b=10),
-                    xaxis_title=None,
-                    yaxis_title=None,
+                    showlegend=True,
+                    margin=dict(l=10, r=10, t=40, b=10),
                     plot_bgcolor="rgba(0,0,0,0)",
                     paper_bgcolor="rgba(0,0,0,0)",
-                    height=300
+                    height=350,
+                    legend=dict(
+                        orientation='h',
+                        yanchor='top',
+                        y=-0.1,
+                        xanchor='center',
+                        x=0.5
+                    )
                 )
                 
-                fig_medium_individual.update_xaxes(showgrid=False)
-                fig_medium_individual.update_yaxes(showgrid=False)
+                # Set y-axes titles
+                fig_medium_individual.update_yaxes(title_text="Installs", secondary_y=False, showgrid=False)
+                fig_medium_individual.update_yaxes(title_text="Conversion Rate (%)", secondary_y=True, showgrid=False)
+                fig_medium_individual.update_xaxes(showgrid=False, title_text=None)
                 
                 # Alternate between columns
                 with cols[i % 2]:
-                    st.plotly_chart(fig_medium_individual, use_container_width=True)
+                    st.plotly_chart(fig_medium_individual, width='stretch')
             
-            # Installs - last 30 days (using add_to_cart as proxy for installs)
-            st.subheader('Installs - last 30 days')
-            
-            # Filter to add_to_cart events only for installs
-            installs_df = combined_trends_df[
-                (combined_trends_df['event_type'] == 'add_to_cart') & 
-                (last_30_days)
-            ].copy()
-            
-            # Aggregate by date
-            installs_daily = installs_df.groupby('event_date')['events_count'].sum().reset_index()
-            
-            fig_installs = px.line(
-                installs_daily,
-                x='event_date',
-                y='events_count',
-                title='Installs - last 30 days',
-                markers=True
-            )
-            
-            fig_installs.update_traces(line_color='#2E8B57')  # Sea green color
-            
-            fig_installs.update_layout(
-                showlegend=False,
-                margin=dict(l=10, r=10, t=30, b=10),
-                xaxis_title=None,
-                yaxis_title=None,
-                plot_bgcolor="rgba(0,0,0,0)",
-                paper_bgcolor="rgba(0,0,0,0)"
-            )
-            
-            fig_installs.update_xaxes(showgrid=False)
-            fig_installs.update_yaxes(showgrid=False)
-            
-            st.plotly_chart(fig_installs, use_container_width=True)
+
+
         
         with organic:
             st.subheader('Organic Traffic Analysis')
@@ -646,13 +856,13 @@ def google_analytics_page() -> None:
                             campaign_performance['% Δ'] = pct_changes
                             campaign_performance = campaign_performance.sort_values('Installs', ascending=False)
                             
-                            st.dataframe(campaign_performance, use_container_width=True, hide_index=True)
+                            st.dataframe(campaign_performance, width='stretch', hide_index=True)
                         else:
                             # Fallback if not enough weeks of data
                             campaign_totals = search_df.groupby('campaign_aggregated')['events_count'].sum().reset_index()
                             campaign_totals.columns = ['Campaign', 'Installs']
                             campaign_totals = campaign_totals.sort_values('Installs', ascending=False)
-                            st.dataframe(campaign_totals, use_container_width=True, hide_index=True)
+                            st.dataframe(campaign_totals, width='stretch', hide_index=True)
                     
                     with col2:
                         st.write("**Campaign Trends**")
@@ -688,14 +898,17 @@ def google_analytics_page() -> None:
                         fig_search_trends.update_xaxes(showgrid=False)
                         fig_search_trends.update_yaxes(showgrid=False)
                         
-                        st.plotly_chart(fig_search_trends, use_container_width=True)
+                        st.plotly_chart(fig_search_trends, width='stretch')
                     
                     # Search Keywords section (simulated with campaign details)
                     st.write("**Search Keywords Performance**")
                     
-                    # Use campaign_details_aggregated as proxy for keywords
-                    keywords_df = search_df[search_df['campaign_details_aggregated'].notna() & 
-                                          (search_df['campaign_details_aggregated'] != '')].copy()
+                    # Use campaign_details_aggregated as proxy for keywords, filtered to campaign=search only
+                    keywords_df = search_df[
+                        (search_df['campaign_details_aggregated'].notna()) & 
+                        (search_df['campaign_details_aggregated'] != '') &
+                        (search_df['campaign_aggregated'] == 'search')
+                    ].copy()
                     
                     if not keywords_df.empty:
                         # Calculate keyword performance with week-over-week changes
@@ -720,13 +933,13 @@ def google_analytics_page() -> None:
                             keyword_performance['% Δ'] = kw_pct_changes
                             keyword_performance = keyword_performance.sort_values('Installs', ascending=False).head(15)
                             
-                            st.dataframe(keyword_performance, use_container_width=True, hide_index=True)
+                            st.dataframe(keyword_performance, width='stretch', hide_index=True)
                         else:
                             # Fallback for keywords
                             keyword_totals = keywords_df.groupby('campaign_details_aggregated')['events_count'].sum().reset_index()
                             keyword_totals.columns = ['Search-KWs', 'Installs']
                             keyword_totals = keyword_totals.sort_values('Installs', ascending=False).head(15)
-                            st.dataframe(keyword_totals, use_container_width=True, hide_index=True)
+                            st.dataframe(keyword_totals, width='stretch', hide_index=True)
                     else:
                         st.info("No keyword data available for organic search.")
                 else:
@@ -772,12 +985,12 @@ def google_analytics_page() -> None:
                             explore_performance['% Δ'] = explore_pct_changes
                             explore_performance = explore_performance.sort_values('Installs', ascending=False)
                             
-                            st.dataframe(explore_performance, use_container_width=True, hide_index=True)
+                            st.dataframe(explore_performance, width='stretch', hide_index=True)
                         else:
                             explore_totals = explore_df.groupby('campaign_aggregated')['events_count'].sum().reset_index()
                             explore_totals.columns = ['Campaign', 'Installs']
                             explore_totals = explore_totals.sort_values('Installs', ascending=False)
-                            st.dataframe(explore_totals, use_container_width=True, hide_index=True)
+                            st.dataframe(explore_totals, width='stretch', hide_index=True)
                     
                     with col2:
                         st.write("**Campaign Trends**")
@@ -812,51 +1025,169 @@ def google_analytics_page() -> None:
                         fig_explore_trends.update_xaxes(showgrid=False)
                         fig_explore_trends.update_yaxes(showgrid=False)
                         
-                        st.plotly_chart(fig_explore_trends, use_container_width=True)
+                        st.plotly_chart(fig_explore_trends, width='stretch')
                     
                     # Campaign/Placement breakdown
                     st.write("**Campaign/Placement Breakdown**")
                     
-                    # Create detailed breakdown using available fields
-                    placement_df = explore_df.groupby(['campaign_aggregated', 'campaign_details_aggregated'])['events_count'].sum().reset_index()
-                    placement_df = placement_df[placement_df['campaign_details_aggregated'].notna() & 
-                                              (placement_df['campaign_details_aggregated'] != '')]
-                    placement_df.columns = ['Campaign', 'Placement', 'Installs']
-                    placement_df = placement_df.sort_values('Installs', ascending=False).head(10)
-                    
-                    if not placement_df.empty:
-                        st.dataframe(placement_df, use_container_width=True, hide_index=True)
+                    # Calculate WoW data for placement breakdown
+                    if len(weeks) >= 2:
+                        current_week = weeks[-1]
+                        previous_week = weeks[-2]
+                        
+                        # Current week placement data
+                        current_placement_data = explore_df[explore_df['week'] == current_week].groupby(['campaign_aggregated', 'campaign_details_aggregated'])['events_count'].sum().reset_index()
+                        current_placement_data = current_placement_data[current_placement_data['campaign_details_aggregated'].notna() & 
+                                                                      (current_placement_data['campaign_details_aggregated'] != '')]
+                        current_placement_data.columns = ['Campaign', 'Placement', 'Current_Installs']
+                        
+                        # Previous week placement data
+                        previous_placement_data = explore_df[explore_df['week'] == previous_week].groupby(['campaign_aggregated', 'campaign_details_aggregated'])['events_count'].sum().reset_index()
+                        previous_placement_data = previous_placement_data[previous_placement_data['campaign_details_aggregated'].notna() & 
+                                                                        (previous_placement_data['campaign_details_aggregated'] != '')]
+                        previous_placement_data.columns = ['Campaign', 'Placement', 'Previous_Installs']
+                        
+                        # Merge current and previous data
+                        placement_df = pd.merge(current_placement_data, previous_placement_data, on=['Campaign', 'Placement'], how='left')
+                        placement_df['Previous_Installs'] = placement_df['Previous_Installs'].fillna(0)
+                        
+                        # Calculate WoW delta and percentage
+                        placement_df['WoW_Delta'] = placement_df['Current_Installs'] - placement_df['Previous_Installs']
+                        placement_df['WoW_Percent'] = ((placement_df['Current_Installs'] - placement_df['Previous_Installs']) / 
+                                                      placement_df['Previous_Installs'].replace(0, 1) * 100).round(1)
+                        
+                        # Handle cases where previous week had 0 installs
+                        placement_df.loc[placement_df['Previous_Installs'] == 0, 'WoW_Percent'] = None
+                        
+                        # Format for display
+                        placement_df = placement_df.sort_values('Current_Installs', ascending=False).head(10)
+                        
+                        # Create display table
+                        display_placement_df = placement_df[['Campaign', 'Placement', 'Current_Installs', 'WoW_Delta', 'WoW_Percent']].copy()
+                        display_placement_df.columns = ['Campaign', 'Placement', 'Installs', 'WoW Δ', 'WoW %']
+                        
+                        # Format the WoW % column
+                        display_placement_df['WoW %'] = display_placement_df['WoW %'].apply(
+                            lambda x: f"{x:.1f}%" if pd.notna(x) else "N/A"
+                        )
+                        
+                        if not display_placement_df.empty:
+                            st.dataframe(display_placement_df, width='stretch', hide_index=True)
+                        else:
+                            st.info("No detailed placement data available.")
                     else:
-                        st.info("No detailed placement data available.")
+                        # Fallback if not enough weeks of data
+                        placement_df = explore_df.groupby(['campaign_aggregated', 'campaign_details_aggregated'])['events_count'].sum().reset_index()
+                        placement_df = placement_df[placement_df['campaign_details_aggregated'].notna() & 
+                                                  (placement_df['campaign_details_aggregated'] != '')]
+                        placement_df.columns = ['Campaign', 'Placement', 'Installs']
+                        placement_df = placement_df.sort_values('Installs', ascending=False).head(10)
+                        
+                        if not placement_df.empty:
+                            st.dataframe(placement_df, width='stretch', hide_index=True)
+                        else:
+                            st.info("No detailed placement data available.")
                     
                     # Additional breakdowns in columns
                     col1, col2 = st.columns(2)
                     
                     with col1:
                         st.write("**Category Breakdown**")
-                        # Use surface_type as proxy for category
-                        category_df = explore_df.groupby('surface_type_parsed')['events_count'].sum().reset_index()
-                        category_df = category_df[category_df['surface_type_parsed'].notna()]
-                        category_df.columns = ['Category', 'Installs']
-                        category_df = category_df.sort_values('Installs', ascending=False).head(7)
                         
-                        if not category_df.empty:
-                            st.dataframe(category_df, use_container_width=True, hide_index=True)
+                        if len(weeks) >= 2:
+                            current_week = weeks[-1]
+                            previous_week = weeks[-2]
+                            
+                            # Current week category data
+                            current_category_data = explore_df[explore_df['week'] == current_week].groupby('surface_type_parsed')['events_count'].sum().reset_index()
+                            current_category_data = current_category_data[current_category_data['surface_type_parsed'].notna()]
+                            current_category_data.columns = ['Category', 'Current_Installs']
+                            
+                            # Previous week category data
+                            previous_category_data = explore_df[explore_df['week'] == previous_week].groupby('surface_type_parsed')['events_count'].sum().reset_index()
+                            previous_category_data = previous_category_data[previous_category_data['surface_type_parsed'].notna()]
+                            previous_category_data.columns = ['Category', 'Previous_Installs']
+                            
+                            # Merge and calculate WoW
+                            category_df = pd.merge(current_category_data, previous_category_data, on='Category', how='left')
+                            category_df['Previous_Installs'] = category_df['Previous_Installs'].fillna(0)
+                            category_df['WoW_Delta'] = category_df['Current_Installs'] - category_df['Previous_Installs']
+                            category_df['WoW_Percent'] = ((category_df['Current_Installs'] - category_df['Previous_Installs']) / 
+                                                         category_df['Previous_Installs'].replace(0, 1) * 100).round(1)
+                            category_df.loc[category_df['Previous_Installs'] == 0, 'WoW_Percent'] = None
+                            
+                            # Format for display
+                            category_df = category_df.sort_values('Current_Installs', ascending=False).head(7)
+                            display_category_df = category_df[['Category', 'Current_Installs', 'WoW_Delta', 'WoW_Percent']].copy()
+                            display_category_df.columns = ['Category', 'Installs', 'WoW Δ', 'WoW %']
+                            display_category_df['WoW %'] = display_category_df['WoW %'].apply(
+                                lambda x: f"{x:.1f}%" if pd.notna(x) else "N/A"
+                            )
+                            
+                            if not display_category_df.empty:
+                                st.dataframe(display_category_df, width='stretch', hide_index=True)
+                            else:
+                                st.info("No category data available.")
                         else:
-                            st.info("No category data available.")
+                            # Fallback if not enough weeks of data
+                            category_df = explore_df.groupby('surface_type_parsed')['events_count'].sum().reset_index()
+                            category_df = category_df[category_df['surface_type_parsed'].notna()]
+                            category_df.columns = ['Category', 'Installs']
+                            category_df = category_df.sort_values('Installs', ascending=False).head(7)
+                            
+                            if not category_df.empty:
+                                st.dataframe(category_df, width='stretch', hide_index=True)
+                            else:
+                                st.info("No category data available.")
                     
                     with col2:
                         st.write("**Story Breakdown**")
-                        # Use surface_detail as proxy for story
-                        story_df = explore_df.groupby('surface_detail_parsed')['events_count'].sum().reset_index()
-                        story_df = story_df[story_df['surface_detail_parsed'].notna()]
-                        story_df.columns = ['Story', 'Installs']
-                        story_df = story_df.sort_values('Installs', ascending=False).head(7)
                         
-                        if not story_df.empty:
-                            st.dataframe(story_df, use_container_width=True, hide_index=True)
+                        if len(weeks) >= 2:
+                            current_week = weeks[-1]
+                            previous_week = weeks[-2]
+                            
+                            # Current week story data
+                            current_story_data = explore_df[explore_df['week'] == current_week].groupby('surface_detail_parsed')['events_count'].sum().reset_index()
+                            current_story_data = current_story_data[current_story_data['surface_detail_parsed'].notna()]
+                            current_story_data.columns = ['Story', 'Current_Installs']
+                            
+                            # Previous week story data
+                            previous_story_data = explore_df[explore_df['week'] == previous_week].groupby('surface_detail_parsed')['events_count'].sum().reset_index()
+                            previous_story_data = previous_story_data[previous_story_data['surface_detail_parsed'].notna()]
+                            previous_story_data.columns = ['Story', 'Previous_Installs']
+                            
+                            # Merge and calculate WoW
+                            story_df = pd.merge(current_story_data, previous_story_data, on='Story', how='left')
+                            story_df['Previous_Installs'] = story_df['Previous_Installs'].fillna(0)
+                            story_df['WoW_Delta'] = story_df['Current_Installs'] - story_df['Previous_Installs']
+                            story_df['WoW_Percent'] = ((story_df['Current_Installs'] - story_df['Previous_Installs']) / 
+                                                      story_df['Previous_Installs'].replace(0, 1) * 100).round(1)
+                            story_df.loc[story_df['Previous_Installs'] == 0, 'WoW_Percent'] = None
+                            
+                            # Format for display
+                            story_df = story_df.sort_values('Current_Installs', ascending=False).head(7)
+                            display_story_df = story_df[['Story', 'Current_Installs', 'WoW_Delta', 'WoW_Percent']].copy()
+                            display_story_df.columns = ['Story', 'Installs', 'WoW Δ', 'WoW %']
+                            display_story_df['WoW %'] = display_story_df['WoW %'].apply(
+                                lambda x: f"{x:.1f}%" if pd.notna(x) else "N/A"
+                            )
+                            
+                            if not display_story_df.empty:
+                                st.dataframe(display_story_df, width='stretch', hide_index=True)
+                            else:
+                                st.info("No story data available.")
                         else:
-                            st.info("No story data available.")
+                            # Fallback if not enough weeks of data
+                            story_df = explore_df.groupby('surface_detail_parsed')['events_count'].sum().reset_index()
+                            story_df = story_df[story_df['surface_detail_parsed'].notna()]
+                            story_df.columns = ['Story', 'Installs']
+                            story_df = story_df.sort_values('Installs', ascending=False).head(7)
+                            
+                            if not story_df.empty:
+                                st.dataframe(story_df, width='stretch', hide_index=True)
+                            else:
+                                st.info("No story data available.")
                 else:
                     st.info("No organic explore data available.")
             
@@ -894,7 +1225,7 @@ def google_analytics_page() -> None:
                     
                     uncategorised_summary = uncategorised_summary.rename(columns=display_columns)
                     
-                    st.dataframe(uncategorised_summary, use_container_width=True, hide_index=True)
+                    st.dataframe(uncategorised_summary, width='stretch', hide_index=True)
                     
                     # Summary stats
                     total_uncategorised = uncategorised_summary['Achievement ID / Event count'].sum()
@@ -955,7 +1286,7 @@ def google_analytics_page() -> None:
                 fig_organic_search.update_xaxes(showgrid=False)
                 fig_organic_search.update_yaxes(showgrid=False)
                 
-                st.plotly_chart(fig_organic_search, use_container_width=True)
+                st.plotly_chart(fig_organic_search, width='stretch')
             else:
                 st.info("No organic search trends data available.")
             
@@ -1016,7 +1347,7 @@ def google_analytics_page() -> None:
                     fig_organic_explore.update_xaxes(showgrid=False)
                     fig_organic_explore.update_yaxes(showgrid=False)
                     
-                    st.plotly_chart(fig_organic_explore, use_container_width=True)
+                    st.plotly_chart(fig_organic_explore, width='stretch')
                 else:
                     st.info("No meaningful organic explore trends data available.")
             else:
@@ -1054,7 +1385,7 @@ def google_analytics_page() -> None:
                             'Campaign': top_search.index,
                             'Events': top_search.values
                         })
-                        st.dataframe(search_df_display, use_container_width=True, hide_index=True)
+                        st.dataframe(search_df_display, width='stretch', hide_index=True)
                     else:
                         st.info("No search data available")
                 
@@ -1074,7 +1405,7 @@ def google_analytics_page() -> None:
                                 'Surface Type': top_explore.index,
                                 'Events': top_explore.values
                             })
-                        st.dataframe(explore_df_display, use_container_width=True, hide_index=True)
+                        st.dataframe(explore_df_display, width='stretch', hide_index=True)
                     else:
                         st.info("No explore data available")
         
@@ -1151,7 +1482,7 @@ def google_analytics_page() -> None:
                 fig_partner_sources.update_xaxes(showgrid=False)
                 fig_partner_sources.update_yaxes(showgrid=False)
                 
-                st.plotly_chart(fig_partner_sources, use_container_width=True)
+                st.plotly_chart(fig_partner_sources, width='stretch')
             else:
                 st.info("No partner data available for the last 6 months.")
             
@@ -1237,7 +1568,7 @@ def google_analytics_page() -> None:
                 performance_df = pd.DataFrame(performance_data)
                 performance_df = performance_df.sort_values('Installs', key=lambda x: x.str.replace(',', '').astype(int), ascending=False)
                 
-                st.dataframe(performance_df, use_container_width=True, hide_index=True)
+                st.dataframe(performance_df, width='stretch', hide_index=True)
                 
                 # Summary metrics
                 st.subheader('Partner Summary - Last Week')
@@ -1351,7 +1682,7 @@ def google_analytics_page() -> None:
                 fig_paid_keywords.update_xaxes(showgrid=False)
                 fig_paid_keywords.update_yaxes(showgrid=False)
                 
-                st.plotly_chart(fig_paid_keywords, use_container_width=True)
+                st.plotly_chart(fig_paid_keywords, width='stretch')
             else:
                 st.info("No paid keywords data available for the last 6 months.")
             
@@ -1442,7 +1773,7 @@ def google_analytics_page() -> None:
                 paid_performance_df = pd.DataFrame(paid_performance_data)
                 paid_performance_df = paid_performance_df.sort_values('Installs', key=lambda x: x.str.replace(',', '').astype(int), ascending=False)
                 
-                st.dataframe(paid_performance_df, use_container_width=True, hide_index=True)
+                st.dataframe(paid_performance_df, width='stretch', hide_index=True)
                 
                 # Summary metrics
                 st.subheader('Paid Summary - Last Week')
@@ -1495,7 +1826,7 @@ def google_analytics_page() -> None:
                         'Campaign': top_campaigns.index,
                         'Installs': top_campaigns.values
                     })
-                    st.dataframe(top_campaigns_df, use_container_width=True, hide_index=True)
+                    st.dataframe(top_campaigns_df, width='stretch', hide_index=True)
                 
                 with col2:
                     st.write("**Campaign Performance Chart**")
@@ -1520,7 +1851,7 @@ def google_analytics_page() -> None:
                     fig_top_campaigns.update_xaxes(showgrid=False)
                     fig_top_campaigns.update_yaxes(showgrid=False)
                     
-                    st.plotly_chart(fig_top_campaigns, use_container_width=True)
+                    st.plotly_chart(fig_top_campaigns, width='stretch')
             else:
                 st.info("No paid campaign data available for the last 30 days.")
         
@@ -1578,7 +1909,7 @@ def google_analytics_page() -> None:
                 fig_website_trend.update_xaxes(showgrid=False)
                 fig_website_trend.update_yaxes(showgrid=False)
                 
-                st.plotly_chart(fig_website_trend, use_container_width=True)
+                st.plotly_chart(fig_website_trend, width='stretch')
                 
                 # Add note about data structure
                 st.info("**Note**: All website traffic comes from 'judgeme' source, so the chart shows trends by page type for more meaningful analysis.")
@@ -1667,7 +1998,7 @@ def google_analytics_page() -> None:
                 website_performance_df = pd.DataFrame(website_performance_data)
                 website_performance_df = website_performance_df.sort_values('Installs', key=lambda x: x.str.replace(',', '').astype(int), ascending=False)
                 
-                st.dataframe(website_performance_df, use_container_width=True, hide_index=True)
+                st.dataframe(website_performance_df, width='stretch', hide_index=True)
                 
                 # Summary metrics
                 st.subheader('Website Summary - Last Week')
@@ -1721,7 +2052,7 @@ def google_analytics_page() -> None:
                             'Source': top_sources_installs.index,
                             'Installs': top_sources_installs.values
                         })
-                        st.dataframe(top_sources_installs_df, use_container_width=True, hide_index=True)
+                        st.dataframe(top_sources_installs_df, width='stretch', hide_index=True)
                     else:
                         st.info("No website installs data available.")
                 
@@ -1734,7 +2065,7 @@ def google_analytics_page() -> None:
                             'Source': top_sources_views.index,
                             'Page Views': top_sources_views.values
                         })
-                        st.dataframe(top_sources_views_df, use_container_width=True, hide_index=True)
+                        st.dataframe(top_sources_views_df, width='stretch', hide_index=True)
                     else:
                         st.info("No website page views data available.")
                 
@@ -1766,6 +2097,6 @@ def google_analytics_page() -> None:
                     fig_website_sources.update_xaxes(showgrid=False)
                     fig_website_sources.update_yaxes(showgrid=False)
                     
-                    st.plotly_chart(fig_website_sources, use_container_width=True)
+                    st.plotly_chart(fig_website_sources, width='stretch')
             else:
                 st.info("No website data available for the last 30 days.")
