@@ -11,81 +11,64 @@ _original_warn = warnings.warn
 
 def custom_warn(message, category=UserWarning, filename='', lineno=-1, file=None, stacklevel=1):
     """Custom warning function that suppresses Plotly deprecation warnings"""
-    message_str = str(message)
-    if any(phrase in message_str.lower() for phrase in [
-        'keyword arguments have been deprecated',
-        'use config instead',
-        'deprecated and will be removed',
-        'plotly configuration options'
-    ]):
-        return  # Suppress these warnings
-    return _original_warn(message, category, filename, lineno, file, stacklevel)
+    try:
+        message_str = str(message).lower()
+        if any(phrase in message_str for phrase in [
+            'keyword arguments have been deprecated',
+            'use config instead',
+            'deprecated and will be removed',
+            'plotly configuration options',
+            'scattermapbox',
+            'is deprecated'
+        ]):
+            return  # Suppress these warnings
+    except Exception:
+        pass  # If there's any error in processing, just continue
+    
+    # Call original warn with correct parameters (warnings.warn only takes up to 5 parameters)
+    return _original_warn(message, category, filename, lineno, file)
 
 # Replace the warnings.warn function
 warnings.warn = custom_warn
 
-# Suppress Plotly deprecation warnings - be very aggressive
+# Suppress all Plotly and Streamlit warnings aggressively
 warnings.filterwarnings("ignore", message=".*keyword arguments have been deprecated.*")
 warnings.filterwarnings("ignore", message=".*Use.*config.*instead.*")
 warnings.filterwarnings("ignore", message=".*deprecated and will be removed.*")
-warnings.filterwarnings("ignore", category=FutureWarning, module="plotly")
-warnings.filterwarnings("ignore", category=DeprecationWarning, module="streamlit")
+warnings.filterwarnings("ignore", message=".*is deprecated.*")
+warnings.filterwarnings("ignore", message=".*scattermapbox.*")
+warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=UserWarning, module="plotly")
 warnings.filterwarnings("ignore", category=UserWarning, module="streamlit")
+warnings.filterwarnings("ignore", category=UserWarning, module="_plotly_utils")
+
+# Suppress all warnings as a last resort
+warnings.simplefilter("ignore")
 
 # Also suppress at the logging level
 import logging
-logging.getLogger("streamlit").setLevel(logging.ERROR)
-logging.getLogger("plotly").setLevel(logging.ERROR)
+try:
+    logging.getLogger("streamlit").setLevel(logging.ERROR)
+    logging.getLogger("plotly").setLevel(logging.ERROR)
+except Exception:
+    pass  # If logging configuration fails, continue
 
 # Set environment variables to suppress warnings
 os.environ['PLOTLY_SUPPRESS_WARNINGS'] = '1'
 os.environ['STREAMLIT_SUPPRESS_WARNINGS'] = '1'
 os.environ['PYTHONWARNINGS'] = 'ignore'
 
-# Set global Plotly configuration
-pio.templates.default = "plotly_white"
-pio.renderers.default = "browser"
-
-# Configure Plotly to avoid deprecation warnings
+# Skip Plotly template configuration to avoid errors
+# Templates can cause compatibility issues, so we'll let Plotly use its defaults
 import plotly.express as px
-px.defaults.template = "plotly_white"
-px.defaults.width = None
-px.defaults.height = None
-
-# Override Plotly functions to prevent deprecated parameters
-_original_px_bar = px.bar
-_original_px_line = px.line
-_original_go_Figure = go.Figure
-
-def safe_px_bar(*args, **kwargs):
-    """Safe wrapper for px.bar that removes deprecated parameters"""
-    # Remove any deprecated parameters that might cause warnings
-    deprecated_params = ['use_container_width', 'config']
-    for param in deprecated_params:
-        kwargs.pop(param, None)
-    return _original_px_bar(*args, **kwargs)
-
-def safe_px_line(*args, **kwargs):
-    """Safe wrapper for px.line that removes deprecated parameters"""
-    # Remove any deprecated parameters that might cause warnings
-    deprecated_params = ['use_container_width', 'config']
-    for param in deprecated_params:
-        kwargs.pop(param, None)
-    return _original_px_line(*args, **kwargs)
-
-def safe_go_Figure(*args, **kwargs):
-    """Safe wrapper for go.Figure that removes deprecated parameters"""
-    # Remove any deprecated parameters that might cause warnings
-    deprecated_params = ['use_container_width', 'config']
-    for param in deprecated_params:
-        kwargs.pop(param, None)
-    return _original_go_Figure(*args, **kwargs)
-
-# Replace the original functions
-px.bar = safe_px_bar
-px.line = safe_px_line
-go.Figure = safe_go_Figure
+try:
+    # Only set safe defaults that don't cause template errors
+    px.defaults.width = None
+    px.defaults.height = None
+except Exception:
+    # If defaults setting fails, just continue
+    pass
 
 # Global Plotly configuration
 SAFE_PLOTLY_CONFIG = {
