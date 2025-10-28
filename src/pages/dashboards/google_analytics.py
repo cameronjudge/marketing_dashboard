@@ -5,13 +5,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from src.db.bigquery_connection import run_query
 from src.sql.google_analytics.google_analytics import ga_installs, ga_view_app
-
-# Global Plotly configuration to avoid deprecation warnings
-PLOTLY_CONFIG = {
-    'displayModeBar': False,
-    'displaylogo': False,
-    'staticPlot': False
-}
+from src.utils.plotly_config import render_plotly_chart
 
 def google_analytics_page() -> None:
     st.set_page_config(
@@ -256,7 +250,7 @@ def google_analytics_page() -> None:
             fig.update_xaxes(showgrid=False)
             fig.update_yaxes(showgrid=False)
 
-            st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+            st.plotly_chart(fig, width='stretch')
             
             # New charts section
             st.divider()
@@ -332,7 +326,7 @@ def google_analytics_page() -> None:
                     fig_tracking.update_xaxes(showgrid=False)
                     fig_tracking.update_yaxes(showgrid=False)
                     
-                    st.plotly_chart(fig_tracking, width='stretch', config={'displayModeBar': False})
+                    st.plotly_chart(fig_tracking, width='stretch')
                 
                 with col2:
                     # Chart 2: Conversion rate (installs / views)
@@ -366,7 +360,7 @@ def google_analytics_page() -> None:
                     fig_conversion.update_xaxes(showgrid=False)
                     fig_conversion.update_yaxes(showgrid=False, range=[0, None])
                     
-                    st.plotly_chart(fig_conversion, width='stretch', config={'displayModeBar': False})
+                    st.plotly_chart(fig_conversion, width='stretch')
             
             # Sources breakdown table
             st.subheader('Medium Breakdown')

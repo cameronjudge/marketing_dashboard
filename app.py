@@ -1,13 +1,47 @@
 import streamlit as st
 import warnings
 import os
+from typing import Any, Dict, Optional
+import plotly.graph_objects as go
 
 # Suppress Plotly deprecation warnings
 warnings.filterwarnings("ignore", message=".*keyword arguments have been deprecated.*")
 warnings.filterwarnings("ignore", category=FutureWarning, module="plotly")
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="streamlit")
 
 # Set environment variable to suppress Plotly warnings
 os.environ['PLOTLY_SUPPRESS_WARNINGS'] = '1'
+
+# Global Plotly configuration
+SAFE_PLOTLY_CONFIG = {
+    'displayModeBar': False,
+    'displaylogo': False,
+    'staticPlot': False,
+    'responsive': True,
+    'showTips': False,
+    'showAxisDragHandles': False,
+    'showAxisRangeEntryBoxes': False,
+    'doubleClick': 'reset',
+    'scrollZoom': False
+}
+
+# Monkey patch st.plotly_chart to always use safe config
+_original_plotly_chart = st.plotly_chart
+
+def safe_plotly_chart(figure_or_data, width='stretch', config=None, **kwargs):
+    """Safe wrapper for st.plotly_chart that prevents deprecation warnings"""
+    if config is None:
+        config = SAFE_PLOTLY_CONFIG.copy()
+    else:
+        # Merge with safe config, giving precedence to user config
+        safe_config = SAFE_PLOTLY_CONFIG.copy()
+        safe_config.update(config)
+        config = safe_config
+    
+    return _original_plotly_chart(figure_or_data, width=width, config=config, **kwargs)
+
+# Replace the original function
+st.plotly_chart = safe_plotly_chart
 
 from src.app.settings import configure_page
 from src.app.layout import render_chrome, collapse_sidebar

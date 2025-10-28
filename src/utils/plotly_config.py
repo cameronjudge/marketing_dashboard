@@ -10,7 +10,20 @@ DEFAULT_PLOTLY_CONFIG = {
     'displayModeBar': False,
     'displaylogo': False,
     'staticPlot': False,
-    'responsive': True
+    'responsive': True,
+    'showTips': False,
+    'showAxisDragHandles': False,
+    'showAxisRangeEntryBoxes': False,
+    'doubleClick': 'reset',
+    'scrollZoom': False,
+    'modeBarButtonsToRemove': ['pan2d', 'lasso2d', 'select2d', 'zoom2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d'],
+    'toImageButtonOptions': {
+        'format': 'png',
+        'filename': 'chart',
+        'height': 500,
+        'width': 700,
+        'scale': 1
+    }
 }
 
 def render_plotly_chart(
