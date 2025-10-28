@@ -7,16 +7,16 @@ import plotly.graph_objects as go
 
 # Global Plotly configuration to avoid deprecation warnings
 DEFAULT_PLOTLY_CONFIG = {
-    'displayModeBar': False,
+    'displayModeBar': 'hover',
     'displaylogo': False,
     'staticPlot': False,
     'responsive': True,
-    'showTips': False,
-    'showAxisDragHandles': False,
-    'showAxisRangeEntryBoxes': False,
+    'showTips': True,
+    'showAxisDragHandles': True,
+    'showAxisRangeEntryBoxes': True,
     'doubleClick': 'reset',
-    'scrollZoom': False,
-    'modeBarButtonsToRemove': ['pan2d', 'lasso2d', 'select2d', 'zoom2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d'],
+    'scrollZoom': True,
+    'modeBarButtonsToRemove': ['lasso2d', 'select2d'],
     'toImageButtonOptions': {
         'format': 'png',
         'filename': 'chart',

@@ -74,15 +74,16 @@ except Exception:
 
 # Global Plotly configuration
 SAFE_PLOTLY_CONFIG = {
-    'displayModeBar': False,
+    'displayModeBar': 'hover',
     'displaylogo': False,
     'staticPlot': False,
     'responsive': True,
-    'showTips': False,
-    'showAxisDragHandles': False,
-    'showAxisRangeEntryBoxes': False,
+    'showTips': True,
+    'showAxisDragHandles': True,
+    'showAxisRangeEntryBoxes': True,
     'doubleClick': 'reset',
-    'scrollZoom': False
+    'scrollZoom': False,
+    'modeBarButtonsToRemove': ['lasso2d', 'select2d']
 }
 
 # Monkey patch st.plotly_chart to completely suppress warnings
