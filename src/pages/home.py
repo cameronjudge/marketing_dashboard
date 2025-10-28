@@ -85,7 +85,7 @@ def home_page() -> None:
             'week', 'net_installs', ''
         ) if not df_core.empty else None
         if fig:
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
     with g2:
         # Weekly net upgrades from core metrics
         val, delta = _latest_with_delta(df_core, 'week', 'core_net_upgrades') if not df_core.empty else (None, None)

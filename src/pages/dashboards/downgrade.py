@@ -110,6 +110,6 @@ def downgrade_page() -> None:
         yaxis=dict(tickformat=','),
         margin=dict(t=10)
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
 
 

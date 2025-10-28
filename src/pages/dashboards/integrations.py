@@ -99,7 +99,7 @@ def integrations_page():
             }
         )
         fig_tier.update_traces(textposition='inside', textinfo='percent+label')
-        st.plotly_chart(fig_tier, use_container_width=True)
+        st.plotly_chart(fig_tier, width='stretch')
     
     with col2:
         st.subheader("Shop Volume by Tier")
@@ -116,7 +116,7 @@ def integrations_page():
             }
         )
         fig_shops.update_layout(showlegend=False)
-        st.plotly_chart(fig_shops, use_container_width=True)
+        st.plotly_chart(fig_shops, width='stretch')
     
     # Top integrations by shop count
     st.subheader("📊 Top Integrations by Shop Count")
@@ -137,7 +137,7 @@ def integrations_page():
         }
     )
     fig_top.update_layout(height=600, yaxis={'categoryorder': 'total ascending'})
-    st.plotly_chart(fig_top, use_container_width=True)
+    st.plotly_chart(fig_top, width='stretch')
     
     # Performance metrics comparison
     st.subheader("🎯 Performance Metrics Analysis")
@@ -168,7 +168,7 @@ def integrations_page():
         fig_conv.update_layout(height=600, yaxis={'categoryorder': 'total ascending'})
         fig_conv.add_vline(x=conv_data['Awesome Conv %'].mean(), line_dash="dash", 
                           annotation_text=f"Average: {conv_data['Awesome Conv %'].mean():.1f}%")
-        st.plotly_chart(fig_conv, use_container_width=True)
+        st.plotly_chart(fig_conv, width='stretch')
     
     with tab2:
         st.write("**Churn Rate Analysis**")
@@ -208,7 +208,7 @@ def integrations_page():
             height=500
         )
         
-        st.plotly_chart(fig_churn, use_container_width=True)
+        st.plotly_chart(fig_churn, width='stretch')
         st.caption("Bubble size represents total shops. Points below the diagonal line indicate lower churn for awesome users.")
     
     with tab3:
@@ -233,7 +233,7 @@ def integrations_page():
         fig_ltv.update_layout(height=600, yaxis={'categoryorder': 'total ascending'})
         fig_ltv.add_vline(x=ltv_data['LTV'].mean(), line_dash="dash", 
                          annotation_text=f"Average: ${ltv_data['LTV'].mean():.0f}")
-        st.plotly_chart(fig_ltv, use_container_width=True)
+        st.plotly_chart(fig_ltv, width='stretch')
     
     with tab4:
         st.write("**Customer Lifetime Analysis**")
@@ -257,7 +257,7 @@ def integrations_page():
         fig_lifetime.update_layout(height=600, yaxis={'categoryorder': 'total ascending'})
         fig_lifetime.add_vline(x=lifetime_data['Lifetime'].mean(), line_dash="dash", 
                               annotation_text=f"Average: {lifetime_data['Lifetime'].mean():.0f} days")
-        st.plotly_chart(fig_lifetime, use_container_width=True)
+        st.plotly_chart(fig_lifetime, width='stretch')
     
     # Detailed data table
     st.subheader("📋 Detailed Integration Data")
@@ -315,7 +315,7 @@ def integrations_page():
     
     st.dataframe(
         display_df,
-        use_container_width=True,
+        width='stretch',
         height=400
     )
     
