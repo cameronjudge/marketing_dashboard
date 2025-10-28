@@ -3,14 +3,26 @@ import warnings
 import os
 from typing import Any, Dict, Optional
 import plotly.graph_objects as go
+import plotly.io as pio
 
 # Suppress Plotly deprecation warnings
 warnings.filterwarnings("ignore", message=".*keyword arguments have been deprecated.*")
 warnings.filterwarnings("ignore", category=FutureWarning, module="plotly")
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="streamlit")
+warnings.filterwarnings("ignore", category=UserWarning, module="plotly")
 
 # Set environment variable to suppress Plotly warnings
 os.environ['PLOTLY_SUPPRESS_WARNINGS'] = '1'
+
+# Set global Plotly configuration
+pio.templates.default = "plotly_white"
+pio.renderers.default = "browser"
+
+# Configure Plotly to avoid deprecation warnings
+import plotly.express as px
+px.defaults.template = "plotly_white"
+px.defaults.width = None
+px.defaults.height = None
 
 # Global Plotly configuration
 SAFE_PLOTLY_CONFIG = {
@@ -30,15 +42,13 @@ _original_plotly_chart = st.plotly_chart
 
 def safe_plotly_chart(figure_or_data, width='stretch', config=None, **kwargs):
     """Safe wrapper for st.plotly_chart that prevents deprecation warnings"""
-    if config is None:
-        config = SAFE_PLOTLY_CONFIG.copy()
-    else:
-        # Merge with safe config, giving precedence to user config
-        safe_config = SAFE_PLOTLY_CONFIG.copy()
-        safe_config.update(config)
-        config = safe_config
+    # Always use our safe config, ignoring any passed config to avoid conflicts
+    final_config = SAFE_PLOTLY_CONFIG.copy()
     
-    return _original_plotly_chart(figure_or_data, width=width, config=config, **kwargs)
+    # Remove any config from kwargs to prevent conflicts
+    kwargs.pop('config', None)
+    
+    return _original_plotly_chart(figure_or_data, width=width, config=final_config, **kwargs)
 
 # Replace the original function
 st.plotly_chart = safe_plotly_chart

@@ -51,6 +51,8 @@ def build_sparkline_area(
         yaxis_title=None,
         plot_bgcolor="rgba(0,0,0,0)",
         paper_bgcolor="rgba(0,0,0,0)",
+        # Add configuration to prevent warnings
+        template="plotly_white"
     )
     fig.update_xaxes(showgrid=False, showticklabels=False, zeroline=False, showline=False, ticks="")
     fig.update_yaxes(showgrid=False, showticklabels=False, zeroline=False, showline=False, ticks="")

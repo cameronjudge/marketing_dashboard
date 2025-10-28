@@ -473,7 +473,7 @@ def google_analytics_page() -> None:
             fig_installs.update_xaxes(showgrid=False)
             fig_installs.update_yaxes(showgrid=False)
             
-            st.plotly_chart(fig_installs, width='stretch', config={'displayModeBar': False})
+            st.plotly_chart(fig_installs, width='stretch')
             
             st.divider()
             
@@ -533,7 +533,7 @@ def google_analytics_page() -> None:
             fig_language.update_xaxes(showgrid=False)
             fig_language.update_yaxes(showgrid=False)
             
-            st.plotly_chart(fig_language, width='stretch', config={'displayModeBar': False})
+            st.plotly_chart(fig_language, width='stretch')
             
             # Individual language charts with WoW data and conversion rates
             st.subheader('Individual Language Trends')
@@ -644,10 +644,10 @@ def google_analytics_page() -> None:
                 # Alternate between columns
                 if i % 2 == 0:
                     with col1:
-                        st.plotly_chart(fig_individual, width='stretch', config={'displayModeBar': False})
+                        st.plotly_chart(fig_individual, width='stretch')
                 else:
                     with col2:
-                        st.plotly_chart(fig_individual, width='stretch', config={'displayModeBar': False})
+                        st.plotly_chart(fig_individual, width='stretch')
             
             # Medium Trends - Last 30 days
             st.subheader('Medium - Last 30 days')
