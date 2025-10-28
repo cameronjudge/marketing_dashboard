@@ -15,7 +15,7 @@ DEFAULT_PLOTLY_CONFIG = {
     'showAxisDragHandles': True,
     'showAxisRangeEntryBoxes': True,
     'doubleClick': 'reset',
-    'scrollZoom': True,
+    'scrollZoom': False,
     'modeBarButtonsToRemove': ['lasso2d', 'select2d'],
     'toImageButtonOptions': {
         'format': 'png',
