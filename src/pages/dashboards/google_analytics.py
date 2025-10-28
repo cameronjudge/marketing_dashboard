@@ -249,7 +249,7 @@ def google_analytics_page() -> None:
             fig.update_xaxes(showgrid=False)
             fig.update_yaxes(showgrid=False)
 
-            st.plotly_chart(fig, width='stretch')
+            st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
             
             # New charts section
             st.divider()
@@ -325,7 +325,7 @@ def google_analytics_page() -> None:
                     fig_tracking.update_xaxes(showgrid=False)
                     fig_tracking.update_yaxes(showgrid=False)
                     
-                    st.plotly_chart(fig_tracking, width='stretch')
+                    st.plotly_chart(fig_tracking, width='stretch', config={'displayModeBar': False})
                 
                 with col2:
                     # Chart 2: Conversion rate (installs / views)
@@ -359,7 +359,7 @@ def google_analytics_page() -> None:
                     fig_conversion.update_xaxes(showgrid=False)
                     fig_conversion.update_yaxes(showgrid=False, range=[0, None])
                     
-                    st.plotly_chart(fig_conversion, width='stretch')
+                    st.plotly_chart(fig_conversion, width='stretch', config={'displayModeBar': False})
             
             # Sources breakdown table
             st.subheader('Medium Breakdown')
@@ -472,7 +472,7 @@ def google_analytics_page() -> None:
             fig_installs.update_xaxes(showgrid=False)
             fig_installs.update_yaxes(showgrid=False)
             
-            st.plotly_chart(fig_installs, width='stretch')
+            st.plotly_chart(fig_installs, width='stretch', config={'displayModeBar': False})
             
             st.divider()
             
@@ -532,7 +532,7 @@ def google_analytics_page() -> None:
             fig_language.update_xaxes(showgrid=False)
             fig_language.update_yaxes(showgrid=False)
             
-            st.plotly_chart(fig_language, width='stretch')
+            st.plotly_chart(fig_language, width='stretch', config={'displayModeBar': False})
             
             # Individual language charts with WoW data and conversion rates
             st.subheader('Individual Language Trends')
@@ -643,10 +643,10 @@ def google_analytics_page() -> None:
                 # Alternate between columns
                 if i % 2 == 0:
                     with col1:
-                        st.plotly_chart(fig_individual, width='stretch')
+                        st.plotly_chart(fig_individual, width='stretch', config={'displayModeBar': False})
                 else:
                     with col2:
-                        st.plotly_chart(fig_individual, width='stretch')
+                        st.plotly_chart(fig_individual, width='stretch', config={'displayModeBar': False})
             
             # Medium Trends - Last 30 days
             st.subheader('Medium - Last 30 days')
@@ -686,7 +686,7 @@ def google_analytics_page() -> None:
             fig_medium_combined.update_xaxes(showgrid=False)
             fig_medium_combined.update_yaxes(showgrid=False)
             
-            st.plotly_chart(fig_medium_combined, width='stretch')
+            st.plotly_chart(fig_medium_combined, width='stretch', config={'displayModeBar': False})
             
             # Individual medium charts with WoW data and conversion rates
             st.subheader('Individual Medium Trends')
@@ -795,7 +795,7 @@ def google_analytics_page() -> None:
                 
                 # Alternate between columns
                 with cols[i % 2]:
-                    st.plotly_chart(fig_medium_individual, width='stretch')
+                    st.plotly_chart(fig_medium_individual, width='stretch', config={'displayModeBar': False})
             
 
 
@@ -898,7 +898,7 @@ def google_analytics_page() -> None:
                         fig_search_trends.update_xaxes(showgrid=False)
                         fig_search_trends.update_yaxes(showgrid=False)
                         
-                        st.plotly_chart(fig_search_trends, width='stretch')
+                        st.plotly_chart(fig_search_trends, width='stretch', config={'displayModeBar': False})
                     
                     # Search Keywords section (simulated with campaign details)
                     st.write("**Search Keywords Performance**")
@@ -1025,7 +1025,7 @@ def google_analytics_page() -> None:
                         fig_explore_trends.update_xaxes(showgrid=False)
                         fig_explore_trends.update_yaxes(showgrid=False)
                         
-                        st.plotly_chart(fig_explore_trends, width='stretch')
+                        st.plotly_chart(fig_explore_trends, width='stretch', config={'displayModeBar': False})
                     
                     # Campaign/Placement breakdown
                     st.write("**Campaign/Placement Breakdown**")
@@ -1286,7 +1286,7 @@ def google_analytics_page() -> None:
                 fig_organic_search.update_xaxes(showgrid=False)
                 fig_organic_search.update_yaxes(showgrid=False)
                 
-                st.plotly_chart(fig_organic_search, width='stretch')
+                st.plotly_chart(fig_organic_search, width='stretch', config={'displayModeBar': False})
             else:
                 st.info("No organic search trends data available.")
             
@@ -1347,7 +1347,7 @@ def google_analytics_page() -> None:
                     fig_organic_explore.update_xaxes(showgrid=False)
                     fig_organic_explore.update_yaxes(showgrid=False)
                     
-                    st.plotly_chart(fig_organic_explore, width='stretch')
+                    st.plotly_chart(fig_organic_explore, width='stretch', config={'displayModeBar': False})
                 else:
                     st.info("No meaningful organic explore trends data available.")
             else:
@@ -1482,7 +1482,7 @@ def google_analytics_page() -> None:
                 fig_partner_sources.update_xaxes(showgrid=False)
                 fig_partner_sources.update_yaxes(showgrid=False)
                 
-                st.plotly_chart(fig_partner_sources, width='stretch')
+                st.plotly_chart(fig_partner_sources, width='stretch', config={'displayModeBar': False})
             else:
                 st.info("No partner data available for the last 6 months.")
             
@@ -1682,7 +1682,7 @@ def google_analytics_page() -> None:
                 fig_paid_keywords.update_xaxes(showgrid=False)
                 fig_paid_keywords.update_yaxes(showgrid=False)
                 
-                st.plotly_chart(fig_paid_keywords, width='stretch')
+                st.plotly_chart(fig_paid_keywords, width='stretch', config={'displayModeBar': False})
             else:
                 st.info("No paid keywords data available for the last 6 months.")
             
@@ -1851,7 +1851,7 @@ def google_analytics_page() -> None:
                     fig_top_campaigns.update_xaxes(showgrid=False)
                     fig_top_campaigns.update_yaxes(showgrid=False)
                     
-                    st.plotly_chart(fig_top_campaigns, width='stretch')
+                    st.plotly_chart(fig_top_campaigns, width='stretch', config={'displayModeBar': False})
             else:
                 st.info("No paid campaign data available for the last 30 days.")
         
@@ -1909,7 +1909,7 @@ def google_analytics_page() -> None:
                 fig_website_trend.update_xaxes(showgrid=False)
                 fig_website_trend.update_yaxes(showgrid=False)
                 
-                st.plotly_chart(fig_website_trend, width='stretch')
+                st.plotly_chart(fig_website_trend, width='stretch', config={'displayModeBar': False})
                 
                 # Add note about data structure
                 st.info("**Note**: All website traffic comes from 'judgeme' source, so the chart shows trends by page type for more meaningful analysis.")
@@ -2097,6 +2097,6 @@ def google_analytics_page() -> None:
                     fig_website_sources.update_xaxes(showgrid=False)
                     fig_website_sources.update_yaxes(showgrid=False)
                     
-                    st.plotly_chart(fig_website_sources, width='stretch')
+                    st.plotly_chart(fig_website_sources, width='stretch', config={'displayModeBar': False})
             else:
                 st.info("No website data available for the last 30 days.")

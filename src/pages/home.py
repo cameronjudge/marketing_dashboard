@@ -85,7 +85,7 @@ def home_page() -> None:
             'week', 'net_installs', ''
         ) if not df_core.empty else None
         if fig:
-            st.plotly_chart(fig, width='stretch')
+            st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
     with g2:
         # Weekly net upgrades from core metrics
         val, delta = _latest_with_delta(df_core, 'week', 'core_net_upgrades') if not df_core.empty else (None, None)
@@ -95,7 +95,7 @@ def home_page() -> None:
             'week', 'core_net_upgrades', ''
         ) if not df_core.empty else None
         if fig:
-            st.plotly_chart(fig, width='stretch')
+            st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
     with g3:
         # Monthly total growth rate from monthly metrics
         val, delta = _latest_with_delta(df_monthly, 'month', 'total_growth_rate_pct') if not df_monthly.empty else (None, None)
@@ -108,7 +108,7 @@ def home_page() -> None:
             'month', 'total_growth_rate_pct', ''
         ) if not df_monthly.empty else None
         if fig:
-            st.plotly_chart(fig, width='stretch')
+            st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
 
     # Group: Acquisition
     st.markdown('### Acquisition')
@@ -122,7 +122,7 @@ def home_page() -> None:
             'week', 'core_upgrades', ''
         ) if not df_core.empty else None
         if fig:
-            st.plotly_chart(fig, width='stretch')
+            st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
     with a2:
         # Weekly trial starts from core metrics
         val, delta = _latest_with_delta(df_core, 'week', 'total_trials') if not df_core.empty and 'total_trials' in df_core.columns else (None, None)
@@ -132,7 +132,7 @@ def home_page() -> None:
             'week', 'total_trials', ''
         ) if not df_core.empty and 'total_trials' in df_core.columns else None
         if fig:
-            st.plotly_chart(fig, width='stretch')
+            st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
     with a3:
         # Trial conversions from core metrics
         val, delta = _latest_with_delta(df_core, 'week', 'trial_conversions') if not df_core.empty else (None, None)
@@ -142,5 +142,5 @@ def home_page() -> None:
             'week', 'trial_conversions', ''
         ) if not df_core.empty else None
         if fig:
-            st.plotly_chart(fig, width='stretch')
+            st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
             

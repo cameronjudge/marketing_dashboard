@@ -109,7 +109,7 @@ def general_metrics_page():
                 fig_shops.update_xaxes(showgrid=False)
                 fig_shops.update_yaxes(showgrid=False)
                 
-                st.plotly_chart(fig_shops, width='stretch')
+                st.plotly_chart(fig_shops, width='stretch', config={'displayModeBar': False})
         else:
             st.info("No business metrics data available.")
     
@@ -140,7 +140,7 @@ def general_metrics_page():
             fig_revenue.update_xaxes(showgrid=False)
             fig_revenue.update_yaxes(showgrid=False)
             
-            st.plotly_chart(fig_revenue, width='stretch')
+            st.plotly_chart(fig_revenue, width='stretch', config={'displayModeBar': False})
         else:
             st.info("No revenue data available.")
     
@@ -176,7 +176,7 @@ def general_metrics_page():
             fig_line_items.update_xaxes(showgrid=False)
             fig_line_items.update_yaxes(showgrid=False)
             
-            st.plotly_chart(fig_line_items, width='stretch')
+            st.plotly_chart(fig_line_items, width='stretch', config={'displayModeBar': False})
         else:
             st.info("No line items data available.")
     
@@ -207,7 +207,7 @@ def general_metrics_page():
             fig_awesome.update_xaxes(showgrid=False)
             fig_awesome.update_yaxes(showgrid=False)
             
-            st.plotly_chart(fig_awesome, width='stretch')
+            st.plotly_chart(fig_awesome, width='stretch', config={'displayModeBar': False})
         else:
             st.info("No awesome count data available.")
     
@@ -250,7 +250,7 @@ def general_metrics_page():
         fig_reviews.update_xaxes(showgrid=False)
         fig_reviews.update_yaxes(showgrid=False)
         
-        st.plotly_chart(fig_reviews, width='stretch')
+        st.plotly_chart(fig_reviews, width='stretch', config={'displayModeBar': False})
     else:
         st.info("No review metrics data available.")
     
@@ -314,7 +314,7 @@ def general_metrics_page():
             # Add zero line
             fig_shops_growth.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
             
-            st.plotly_chart(fig_shops_growth, width='stretch')
+            st.plotly_chart(fig_shops_growth, width='stretch', config={'displayModeBar': False})
             
             # Show latest growth
             latest_growth = active_shops_growth.iloc[-1]['net_growth']
@@ -354,7 +354,7 @@ def general_metrics_page():
             # Add zero line
             fig_awesome_growth.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
             
-            st.plotly_chart(fig_awesome_growth, width='stretch')
+            st.plotly_chart(fig_awesome_growth, width='stretch', config={'displayModeBar': False})
             
             # Show latest growth
             latest_growth = awesome_growth.iloc[-1]['net_growth']
@@ -394,7 +394,7 @@ def general_metrics_page():
             # Add zero line
             fig_revenue_growth.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
             
-            st.plotly_chart(fig_revenue_growth, width='stretch')
+            st.plotly_chart(fig_revenue_growth, width='stretch', config={'displayModeBar': False})
             
             # Show latest growth
             latest_growth = revenue_growth.iloc[-1]['net_growth']
@@ -455,7 +455,7 @@ def general_metrics_page():
         # Add zero line
         fig_combined_rate.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.5)
         
-        st.plotly_chart(fig_combined_rate, width='stretch')
+        st.plotly_chart(fig_combined_rate, width='stretch', config={'displayModeBar': False})
     
     # Growth Summary Table
     st.subheader('Growth Summary Statistics')
