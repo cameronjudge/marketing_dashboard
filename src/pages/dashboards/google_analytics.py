@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from src.db.bigquery_connection import run_query
 from src.sql.google_analytics.google_analytics import ga_installs, ga_view_app
-from src.utils.plotly_config import render_plotly_chart
+from src.utils.plotly_config import render_plotly_chart, BRAND_COLORS, CHART_COLOR_SEQUENCE, DUAL_CHART_COLORS
 
 def google_analytics_page() -> None:
     st.set_page_config(
@@ -195,13 +195,14 @@ def google_analytics_page() -> None:
                 # Aggregate by week and the selected dimension
                 weekly_events = filtered_df.groupby(['week', color_column])['events_count'].sum().reset_index()
                 
-                # Create stacked bar chart with colors
+                # Create stacked bar chart with brand colors
                 fig = px.bar(
                     weekly_events,
                     x='week',
                     y='events_count',
                     color=color_column,
-                    title=title.replace('Daily', 'Weekly')
+                    title=title.replace('Daily', 'Weekly'),
+                    color_discrete_sequence=CHART_COLOR_SEQUENCE
                 )
                 
                 # Show legend under the chart
@@ -217,13 +218,16 @@ def google_analytics_page() -> None:
                 # Aggregate by week only for simple bar chart
                 weekly_events = filtered_df.groupby('week')['events_count'].sum().reset_index()
                 
-                # Create simple bar chart without colors
+                # Create simple bar chart with primary brand color
                 fig = px.bar(
                     weekly_events,
                     x='week',
                     y='events_count',
                     title=title.replace('Daily', 'Weekly')
                 )
+                
+                # Apply primary brand color to single series
+                fig.update_traces(marker_color=BRAND_COLORS['primary']['keppel'])
                 
                 # No legend needed
                 show_legend = False
@@ -235,22 +239,17 @@ def google_analytics_page() -> None:
                 textposition='outside'
             )
             
-            # Apply consistent dashboard styling
+            # Apply consistent dashboard styling with brand colors
             fig.update_layout(
                 showlegend=show_legend,
                 margin=dict(l=10, r=10, t=30, b=60 if show_legend else 0),
                 xaxis_title=None,
                 yaxis_title=None,
-                plot_bgcolor="rgba(0,0,0,0)",
-                paper_bgcolor="rgba(0,0,0,0)",
-                legend=legend_config
+                legend=legend_config,
+                title_font_color=BRAND_COLORS['primary']['indigo_blue']
             )
-            
-            # Update axes to match dashboard style
-            fig.update_xaxes(showgrid=False)
-            fig.update_yaxes(showgrid=False)
 
-            st.plotly_chart(fig, use_container_width=True)
+            render_plotly_chart(fig, use_container_width=True)
             
             # New charts section
             st.divider()
@@ -297,7 +296,8 @@ def google_analytics_page() -> None:
                         y='count',
                         color='metric',
                         title='Weekly Views vs Installs',
-                        markers=True
+                        markers=True,
+                        color_discrete_sequence=[BRAND_COLORS['primary']['keppel'], BRAND_COLORS['secondary']['picton_blue']]
                     )
                     
                     # Add data labels on points
@@ -306,14 +306,13 @@ def google_analytics_page() -> None:
                         trace.texttemplate = '%{y:,.0f}'
                         trace.mode = 'lines+markers+text'
                     
-                    # Apply styling
+                    # Apply styling with brand colors
                     fig_tracking.update_layout(
                         showlegend=True,
                         margin=dict(l=10, r=10, t=30, b=0),
                         xaxis_title=None,
                         yaxis_title=None,
-                        plot_bgcolor="rgba(0,0,0,0)",
-                        paper_bgcolor="rgba(0,0,0,0)",
+                        title_font_color=BRAND_COLORS['primary']['indigo_blue'],
                         legend=dict(
                             orientation='h',
                             yanchor='top',
@@ -323,10 +322,7 @@ def google_analytics_page() -> None:
                         )
                     )
                     
-                    fig_tracking.update_xaxes(showgrid=False)
-                    fig_tracking.update_yaxes(showgrid=False)
-                    
-                    st.plotly_chart(fig_tracking, use_container_width=True)
+                    render_plotly_chart(fig_tracking, use_container_width=True)
                 
                 with col2:
                     # Chart 2: Conversion rate (installs / views)
@@ -340,27 +336,27 @@ def google_analytics_page() -> None:
                         markers=True
                     )
                     
-                    # Add data labels on points
+                    # Apply primary brand color to line
                     fig_conversion.update_traces(
                         textposition='top center',
                         texttemplate='%{y:.1f}%',
-                        mode='lines+markers+text'
+                        mode='lines+markers+text',
+                        line_color=DUAL_CHART_COLORS['line_primary'],
+                        marker_color=BRAND_COLORS['primary']['keppel']
                     )
                     
-                    # Apply styling
+                    # Apply styling with brand colors
                     fig_conversion.update_layout(
                         showlegend=False,
                         margin=dict(l=10, r=10, t=30, b=0),
                         xaxis_title=None,
                         yaxis_title=None,
-                        plot_bgcolor="rgba(0,0,0,0)",
-                        paper_bgcolor="rgba(0,0,0,0)"
+                        title_font_color=BRAND_COLORS['primary']['indigo_blue']
                     )
                     
-                    fig_conversion.update_xaxes(showgrid=False)
-                    fig_conversion.update_yaxes(showgrid=False, range=[0, None])
+                    fig_conversion.update_yaxes(range=[0, None])
                     
-                    st.plotly_chart(fig_conversion, use_container_width=True)
+                    render_plotly_chart(fig_conversion, use_container_width=True)
             
             # Sources breakdown table
             st.subheader('Medium Breakdown')
@@ -459,21 +455,21 @@ def google_analytics_page() -> None:
                 markers=True
             )
             
-            fig_installs.update_traces(line_color='#2E8B57')  # Sea green color
+            # Apply primary brand color
+            fig_installs.update_traces(
+                line_color=BRAND_COLORS['high_contrast']['navy_blue'],
+                marker_color=BRAND_COLORS['primary']['keppel']
+            )
             
             fig_installs.update_layout(
                 showlegend=False,
                 margin=dict(l=10, r=10, t=30, b=10),
                 xaxis_title=None,
                 yaxis_title=None,
-                plot_bgcolor="rgba(0,0,0,0)",
-                paper_bgcolor="rgba(0,0,0,0)"
+                title_font_color=BRAND_COLORS['primary']['indigo_blue']
             )
             
-            fig_installs.update_xaxes(showgrid=False)
-            fig_installs.update_yaxes(showgrid=False)
-            
-            st.plotly_chart(fig_installs, use_container_width=True)
+            render_plotly_chart(fig_installs, use_container_width=True)
             
             st.divider()
             
@@ -514,14 +510,15 @@ def google_analytics_page() -> None:
             # Aggregate by week and language
             language_weekly = language_df.groupby(['week', 'locale_aggregated'])['events_count'].sum().reset_index()
             
-            # Create language trends chart
+            # Create language trends chart with brand colors
             fig_language = px.line(
                 language_weekly,
                 x='week',
                 y='events_count',
                 color='locale_aggregated',
                 title='Language - Last 8 completed weeks (top 10)',
-                markers=True
+                markers=True,
+                color_discrete_sequence=CHART_COLOR_SEQUENCE
             )
             
             fig_language.update_layout(
@@ -529,8 +526,7 @@ def google_analytics_page() -> None:
                 margin=dict(l=10, r=10, t=30, b=60),
                 xaxis_title=None,
                 yaxis_title=None,
-                plot_bgcolor="rgba(0,0,0,0)",
-                paper_bgcolor="rgba(0,0,0,0)",
+                title_font_color=BRAND_COLORS['primary']['indigo_blue'],
                 legend=dict(
                     orientation='h',
                     yanchor='top',
@@ -540,10 +536,7 @@ def google_analytics_page() -> None:
                 )
             )
             
-            fig_language.update_xaxes(showgrid=False)
-            fig_language.update_yaxes(showgrid=False)
-            
-            st.plotly_chart(fig_language, use_container_width=True)
+            render_plotly_chart(fig_language, use_container_width=True)
             
             # Individual language charts with WoW data and conversion rates
             st.subheader('Individual Language Trends')
@@ -602,13 +595,13 @@ def google_analytics_page() -> None:
                     subplot_titles=[language]
                 )
                 
-                # Add bar chart for installs (left axis)
+                # Add bar chart for installs (left axis) with brand color
                 fig_individual.add_trace(
                     go.Bar(
                         x=combined_data['week'],
                         y=combined_data['installs_count'],
                         name='Installs',
-                        marker_color='#1f77b4',
+                        marker_color=BRAND_COLORS['primary']['keppel'],
                         text=combined_data['installs_count'].apply(lambda x: f"{int(x):,}" if pd.notna(x) else ""),
                         textposition='outside',
                         hovertemplate='<b>Week:</b> %{x}<br><b>Installs:</b> %{y}<br><b>WoW Change:</b> %{customdata:.1f}%<extra></extra>',
@@ -625,8 +618,8 @@ def google_analytics_page() -> None:
                             y=combined_data['conversion_rate'],
                             mode='lines+markers+text',
                             name='Conversion Rate',
-                            line=dict(color='#ff7f0e', width=2),
-                            marker=dict(size=6),
+                            line=dict(color='#DC2626', width=3),  # Bright red for maximum line visibility
+                            marker=dict(size=8, color='#DC2626'),  # Bright red for maximum line visibility
                             text=combined_data['conversion_rate'].apply(lambda x: f"{x:.1f}%" if pd.notna(x) and x > 0 else ""),
                             textposition='top center',
                             hovertemplate='<b>Week:</b> %{x}<br><b>Conversion Rate:</b> %{y:.2f}%<br><b>Views:</b> %{customdata[0]}<br><b>Installs:</b> %{customdata[1]}<extra></extra>',
@@ -635,13 +628,12 @@ def google_analytics_page() -> None:
                         secondary_y=True
                     )
                 
-                # Update layout
+                # Update layout with brand colors
                 fig_individual.update_layout(
                     showlegend=True,
                     margin=dict(l=10, r=10, t=80, b=10),
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    paper_bgcolor="rgba(0,0,0,0)",
                     height=380,
+                    font=dict(color=BRAND_COLORS['primary']['indigo_blue']),
                     legend=dict(
                         orientation='h',
                         yanchor='top',
@@ -657,10 +649,20 @@ def google_analytics_page() -> None:
                     title_text="Installs", 
                     secondary_y=False, 
                     showgrid=False,
-                    range=[0, max_installs * 1.15]  # Add 15% padding above max value
+                    range=[0, max_installs * 1.15],  # Add 15% padding above max value
+                    color=BRAND_COLORS['primary']['indigo_blue']
                 )
-                fig_individual.update_yaxes(title_text="Conversion Rate (%)", secondary_y=True, showgrid=False)
-                fig_individual.update_xaxes(showgrid=False, title_text=None)
+                fig_individual.update_yaxes(
+                    title_text="Conversion Rate (%)", 
+                    secondary_y=True, 
+                    showgrid=False,
+                    color=BRAND_COLORS['primary']['indigo_blue']
+                )
+                fig_individual.update_xaxes(
+                    showgrid=False, 
+                    title_text=None,
+                    color=BRAND_COLORS['primary']['indigo_blue']
+                )
                 
                 # Alternate between columns
                 if i % 2 == 0:
@@ -679,14 +681,15 @@ def google_analytics_page() -> None:
             # Get all mediums for individual charts
             all_mediums = medium_daily['medium_aggregated'].unique()
             
-            # Create combined medium trends chart
+            # Create combined medium trends chart with brand colors
             fig_medium_combined = px.line(
                 medium_daily,
                 x='event_date',
                 y='events_count',
                 color='medium_aggregated',
                 title='Medium - Last 8 completed weeks',
-                markers=True
+                markers=True,
+                color_discrete_sequence=CHART_COLOR_SEQUENCE
             )
             
             fig_medium_combined.update_layout(
@@ -694,8 +697,7 @@ def google_analytics_page() -> None:
                 margin=dict(l=10, r=10, t=30, b=60),
                 xaxis_title=None,
                 yaxis_title=None,
-                plot_bgcolor="rgba(0,0,0,0)",
-                paper_bgcolor="rgba(0,0,0,0)",
+                title_font_color=BRAND_COLORS['primary']['indigo_blue'],
                 legend=dict(
                     orientation='h',
                     yanchor='top',
@@ -705,10 +707,7 @@ def google_analytics_page() -> None:
                 )
             )
             
-            fig_medium_combined.update_xaxes(showgrid=False)
-            fig_medium_combined.update_yaxes(showgrid=False)
-            
-            st.plotly_chart(fig_medium_combined, use_container_width=True, config={'displayModeBar': False})
+            render_plotly_chart(fig_medium_combined, use_container_width=True, config={'displayModeBar': False})
             
             # Individual medium charts with WoW data and conversion rates
             st.subheader('Individual Medium Trends')
@@ -766,13 +765,13 @@ def google_analytics_page() -> None:
                     subplot_titles=[medium.replace('_', ' ').title()]
                 )
                 
-                # Add bar chart for installs (left axis)
+                # Add bar chart for installs (left axis) with brand color
                 fig_medium_individual.add_trace(
                     go.Bar(
                         x=combined_data['week'],
                         y=combined_data['installs_count'],
                         name='Installs',
-                        marker_color='#2ca02c',
+                        marker_color=BRAND_COLORS['secondary']['light_green'],
                         text=combined_data['installs_count'].apply(lambda x: f"{int(x):,}" if pd.notna(x) else ""),
                         textposition='outside',
                         hovertemplate='<b>Week:</b> %{x}<br><b>Installs:</b> %{y}<br><b>WoW Change:</b> %{customdata:.1f}%<extra></extra>',
@@ -789,8 +788,8 @@ def google_analytics_page() -> None:
                             y=combined_data['conversion_rate'],
                             mode='lines+markers+text',
                             name='Conversion Rate',
-                            line=dict(color='#d62728', width=2),
-                            marker=dict(size=6),
+                            line=dict(color=DUAL_CHART_COLORS['line_secondary'], width=2),
+                            marker=dict(size=6, color=DUAL_CHART_COLORS['line_secondary']),
                             text=combined_data['conversion_rate'].apply(lambda x: f"{x:.1f}%" if pd.notna(x) and x > 0 else ""),
                             textposition='top center',
                             hovertemplate='<b>Week:</b> %{x}<br><b>Conversion Rate:</b> %{y:.2f}%<br><b>Views:</b> %{customdata[0]}<br><b>Installs:</b> %{customdata[1]}<extra></extra>',
@@ -799,13 +798,12 @@ def google_analytics_page() -> None:
                         secondary_y=True
                     )
                 
-                # Update layout
+                # Update layout with brand colors
                 fig_medium_individual.update_layout(
                     showlegend=True,
                     margin=dict(l=10, r=10, t=80, b=10),
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    paper_bgcolor="rgba(0,0,0,0)",
                     height=380,
+                    font=dict(color=BRAND_COLORS['primary']['indigo_blue']),
                     legend=dict(
                         orientation='h',
                         yanchor='top',
@@ -821,10 +819,20 @@ def google_analytics_page() -> None:
                     title_text="Installs", 
                     secondary_y=False, 
                     showgrid=False,
-                    range=[0, max_installs * 1.15]  # Add 15% padding above max value
+                    range=[0, max_installs * 1.15],  # Add 15% padding above max value
+                    color=BRAND_COLORS['primary']['indigo_blue']
                 )
-                fig_medium_individual.update_yaxes(title_text="Conversion Rate (%)", secondary_y=True, showgrid=False)
-                fig_medium_individual.update_xaxes(showgrid=False, title_text=None)
+                fig_medium_individual.update_yaxes(
+                    title_text="Conversion Rate (%)", 
+                    secondary_y=True, 
+                    showgrid=False,
+                    color=BRAND_COLORS['primary']['indigo_blue']
+                )
+                fig_medium_individual.update_xaxes(
+                    showgrid=False, 
+                    title_text=None,
+                    color=BRAND_COLORS['primary']['indigo_blue']
+                )
                 
                 # Alternate between columns
                 with cols[i % 2]:
@@ -908,7 +916,8 @@ def google_analytics_page() -> None:
                             x='event_date',
                             y='events_count',
                             color='campaign_aggregated',
-                            markers=True
+                            markers=True,
+                            color_discrete_sequence=CHART_COLOR_SEQUENCE
                         )
                         
                         fig_search_trends.update_layout(
@@ -916,9 +925,8 @@ def google_analytics_page() -> None:
                             margin=dict(l=10, r=10, t=10, b=40),
                             xaxis_title=None,
                             yaxis_title=None,
-                            plot_bgcolor="rgba(0,0,0,0)",
-                            paper_bgcolor="rgba(0,0,0,0)",
                             height=300,
+                            font=dict(color=BRAND_COLORS['primary']['indigo_blue']),
                             legend=dict(
                                 orientation='h',
                                 yanchor='top',
@@ -928,10 +936,7 @@ def google_analytics_page() -> None:
                             )
                         )
                         
-                        fig_search_trends.update_xaxes(showgrid=False)
-                        fig_search_trends.update_yaxes(showgrid=False)
-                        
-                        st.plotly_chart(fig_search_trends, use_container_width=True, config={'displayModeBar': False})
+                        render_plotly_chart(fig_search_trends, use_container_width=True, config={'displayModeBar': False})
                     
                     # Search Keywords section (simulated with campaign details)
                     st.write("**Search Keywords Performance**")
@@ -1035,7 +1040,8 @@ def google_analytics_page() -> None:
                             x='event_date',
                             y='events_count',
                             color='campaign_aggregated',
-                            markers=True
+                            markers=True,
+                            color_discrete_sequence=CHART_COLOR_SEQUENCE
                         )
                         
                         fig_explore_trends.update_layout(
@@ -1043,9 +1049,8 @@ def google_analytics_page() -> None:
                             margin=dict(l=10, r=10, t=10, b=40),
                             xaxis_title=None,
                             yaxis_title=None,
-                            plot_bgcolor="rgba(0,0,0,0)",
-                            paper_bgcolor="rgba(0,0,0,0)",
                             height=300,
+                            font=dict(color=BRAND_COLORS['primary']['indigo_blue']),
                             legend=dict(
                                 orientation='h',
                                 yanchor='top',
@@ -1055,10 +1060,7 @@ def google_analytics_page() -> None:
                             )
                         )
                         
-                        fig_explore_trends.update_xaxes(showgrid=False)
-                        fig_explore_trends.update_yaxes(showgrid=False)
-                        
-                        st.plotly_chart(fig_explore_trends, use_container_width=True, config={'displayModeBar': False})
+                        render_plotly_chart(fig_explore_trends, use_container_width=True, config={'displayModeBar': False})
                     
                     # Campaign/Placement breakdown
                     st.write("**Campaign/Placement Breakdown**")
@@ -1289,24 +1291,24 @@ def google_analytics_page() -> None:
                 # Aggregate by date and campaign for organic search
                 search_daily = search_trends_df.groupby(['event_date', 'campaign_aggregated'])['events_count'].sum().reset_index()
                 
-                # Create the organic search trends chart
+                # Create the organic search trends chart with brand colors
                 fig_organic_search = px.line(
                     search_daily,
                     x='event_date',
                     y='events_count',
                     color='campaign_aggregated',
                     title='Organic_Search - Last 30 Days',
-                    markers=True
+                    markers=True,
+                    color_discrete_sequence=CHART_COLOR_SEQUENCE
                 )
                 
-                # Update layout to match the style in the image
+                # Update layout with brand styling
                 fig_organic_search.update_layout(
                     showlegend=True,
                     margin=dict(l=10, r=10, t=30, b=60),
                     xaxis_title=None,
                     yaxis_title=None,
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    paper_bgcolor="rgba(0,0,0,0)",
+                    title_font_color=BRAND_COLORS['primary']['indigo_blue'],
                     legend=dict(
                         orientation='h',
                         yanchor='top',
@@ -1316,10 +1318,7 @@ def google_analytics_page() -> None:
                     )
                 )
                 
-                fig_organic_search.update_xaxes(showgrid=False)
-                fig_organic_search.update_yaxes(showgrid=False)
-                
-                st.plotly_chart(fig_organic_search, use_container_width=True, config={'displayModeBar': False})
+                render_plotly_chart(fig_organic_search, use_container_width=True, config={'displayModeBar': False})
             else:
                 st.info("No organic search trends data available.")
             
@@ -1350,24 +1349,24 @@ def google_analytics_page() -> None:
                     color_column = 'surface_type_parsed'
                 
                 if not explore_daily.empty:
-                    # Create the organic explore trends chart
+                    # Create the organic explore trends chart with brand colors
                     fig_organic_explore = px.line(
                         explore_daily,
                         x='event_date',
                         y='events_count',
                         color=color_column,
                         title='Organic_Explore - Last 30 Days',
-                        markers=True
+                        markers=True,
+                        color_discrete_sequence=CHART_COLOR_SEQUENCE
                     )
                     
-                    # Update layout to match the style in the image
+                    # Update layout with brand styling
                     fig_organic_explore.update_layout(
                         showlegend=True,
                         margin=dict(l=10, r=10, t=30, b=60),
                         xaxis_title=None,
                         yaxis_title=None,
-                        plot_bgcolor="rgba(0,0,0,0)",
-                        paper_bgcolor="rgba(0,0,0,0)",
+                        title_font_color=BRAND_COLORS['primary']['indigo_blue'],
                         legend=dict(
                             orientation='h',
                             yanchor='top',
@@ -1377,10 +1376,7 @@ def google_analytics_page() -> None:
                         )
                     )
                     
-                    fig_organic_explore.update_xaxes(showgrid=False)
-                    fig_organic_explore.update_yaxes(showgrid=False)
-                    
-                    st.plotly_chart(fig_organic_explore, use_container_width=True, config={'displayModeBar': False})
+                    render_plotly_chart(fig_organic_explore, use_container_width=True, config={'displayModeBar': False})
                 else:
                     st.info("No meaningful organic explore trends data available.")
             else:
@@ -1492,7 +1488,8 @@ def google_analytics_page() -> None:
                     y='events_count',
                     color='source_aggregated',
                     title='Partner Traffic by Source - Last 6 months',
-                    markers=True
+                    markers=True,
+                    color_discrete_sequence=CHART_COLOR_SEQUENCE
                 )
                 
                 fig_partner_sources.update_layout(
@@ -1500,9 +1497,8 @@ def google_analytics_page() -> None:
                     margin=dict(l=10, r=10, t=30, b=60),
                     xaxis_title=None,
                     yaxis_title=None,
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    paper_bgcolor="rgba(0,0,0,0)",
                     height=500,
+                    title_font_color=BRAND_COLORS['primary']['indigo_blue'],
                     legend=dict(
                         orientation='h',
                         yanchor='top',
@@ -1512,10 +1508,7 @@ def google_analytics_page() -> None:
                     )
                 )
                 
-                fig_partner_sources.update_xaxes(showgrid=False)
-                fig_partner_sources.update_yaxes(showgrid=False)
-                
-                st.plotly_chart(fig_partner_sources, use_container_width=True, config={'displayModeBar': False})
+                render_plotly_chart(fig_partner_sources, use_container_width=True, config={'displayModeBar': False})
             else:
                 st.info("No partner data available for the last 6 months.")
             
@@ -1692,7 +1685,8 @@ def google_analytics_page() -> None:
                     y='events_count',
                     color='campaign_aggregated',
                     title='Top 10 Paid Keywords/Campaigns - Last 6 months',
-                    markers=True
+                    markers=True,
+                    color_discrete_sequence=CHART_COLOR_SEQUENCE
                 )
                 
                 fig_paid_keywords.update_layout(
@@ -1700,9 +1694,8 @@ def google_analytics_page() -> None:
                     margin=dict(l=10, r=10, t=30, b=60),
                     xaxis_title=None,
                     yaxis_title=None,
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    paper_bgcolor="rgba(0,0,0,0)",
                     height=500,
+                    title_font_color=BRAND_COLORS['primary']['indigo_blue'],
                     legend=dict(
                         orientation='h',
                         yanchor='top',
@@ -1712,10 +1705,7 @@ def google_analytics_page() -> None:
                     )
                 )
                 
-                fig_paid_keywords.update_xaxes(showgrid=False)
-                fig_paid_keywords.update_yaxes(showgrid=False)
-                
-                st.plotly_chart(fig_paid_keywords, use_container_width=True, config={'displayModeBar': False})
+                render_plotly_chart(fig_paid_keywords, use_container_width=True, config={'displayModeBar': False})
             else:
                 st.info("No paid keywords data available for the last 6 months.")
             
@@ -1871,20 +1861,19 @@ def google_analytics_page() -> None:
                         title='Top 5 Campaigns by Installs'
                     )
                     
+                    # Apply primary brand color to bars
+                    fig_top_campaigns.update_traces(marker_color=BRAND_COLORS['primary']['keppel'])
+                    
                     fig_top_campaigns.update_layout(
                         showlegend=False,
                         margin=dict(l=10, r=10, t=30, b=10),
                         xaxis_title=None,
                         yaxis_title=None,
-                        plot_bgcolor="rgba(0,0,0,0)",
-                        paper_bgcolor="rgba(0,0,0,0)",
-                        height=300
+                        height=300,
+                        title_font_color=BRAND_COLORS['primary']['indigo_blue']
                     )
                     
-                    fig_top_campaigns.update_xaxes(showgrid=False)
-                    fig_top_campaigns.update_yaxes(showgrid=False)
-                    
-                    st.plotly_chart(fig_top_campaigns, use_container_width=True, config={'displayModeBar': False})
+                    render_plotly_chart(fig_top_campaigns, use_container_width=True, config={'displayModeBar': False})
             else:
                 st.info("No paid campaign data available for the last 30 days.")
         
@@ -1919,7 +1908,8 @@ def google_analytics_page() -> None:
                     y='events_count',
                     color='campaign_aggregated',
                     title='Website Traffic Trend by Page Type (Source: Judge.me)',
-                    markers=True
+                    markers=True,
+                    color_discrete_sequence=CHART_COLOR_SEQUENCE
                 )
                 
                 fig_website_trend.update_layout(
@@ -1927,9 +1917,8 @@ def google_analytics_page() -> None:
                     margin=dict(l=10, r=10, t=30, b=60),
                     xaxis_title=None,
                     yaxis_title=None,
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    paper_bgcolor="rgba(0,0,0,0)",
                     height=500,
+                    title_font_color=BRAND_COLORS['primary']['indigo_blue'],
                     legend=dict(
                         orientation='h',
                         yanchor='top',
@@ -1939,10 +1928,7 @@ def google_analytics_page() -> None:
                     )
                 )
                 
-                fig_website_trend.update_xaxes(showgrid=False)
-                fig_website_trend.update_yaxes(showgrid=False)
-                
-                st.plotly_chart(fig_website_trend, use_container_width=True, config={'displayModeBar': False})
+                render_plotly_chart(fig_website_trend, use_container_width=True, config={'displayModeBar': False})
                 
                 # Add note about data structure
                 st.info("**Note**: All website traffic comes from 'judgeme' source, so the chart shows trends by page type for more meaningful analysis.")
@@ -2117,19 +2103,18 @@ def google_analytics_page() -> None:
                         labels={'x': 'Installs', 'y': 'Source'}
                     )
                     
+                    # Apply primary brand color to bars
+                    fig_website_sources.update_traces(marker_color=BRAND_COLORS['primary']['keppel'])
+                    
                     fig_website_sources.update_layout(
                         showlegend=False,
                         margin=dict(l=10, r=10, t=30, b=10),
                         xaxis_title=None,
                         yaxis_title=None,
-                        plot_bgcolor="rgba(0,0,0,0)",
-                        paper_bgcolor="rgba(0,0,0,0)",
-                        height=400
+                        height=400,
+                        title_font_color=BRAND_COLORS['primary']['indigo_blue']
                     )
                     
-                    fig_website_sources.update_xaxes(showgrid=False)
-                    fig_website_sources.update_yaxes(showgrid=False)
-                    
-                    st.plotly_chart(fig_website_sources, use_container_width=True, config={'displayModeBar': False})
+                    render_plotly_chart(fig_website_sources, use_container_width=True, config={'displayModeBar': False})
             else:
                 st.info("No website data available for the last 30 days.")
