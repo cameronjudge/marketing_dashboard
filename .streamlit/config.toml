@@ -20,9 +20,7 @@ headingFont = "Inter:https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wg
 headingFontWeights = [600, 600, 600, 200, 600, 200]
 headingFontSizes = ["3rem", "1.5rem", "1rem", "1rem", "0.8rem", "0.8rem"]
 
-[client]
-# Disable Plotly warnings
-showWarningOnDirectExecution = false
+# Removed invalid config option showWarningOnDirectExecution
 
 
 

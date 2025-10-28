@@ -19,31 +19,35 @@ def custom_warn(message, category=UserWarning, filename='', lineno=-1, file=None
             'deprecated and will be removed',
             'plotly configuration options',
             'scattermapbox',
-            'is deprecated'
+            'is deprecated',
+            'bigquery storage',
+            'pandas only supports',
+            'sqlalchemy connectable'
         ]):
             return  # Suppress these warnings
     except Exception:
         pass  # If there's any error in processing, just continue
     
-    # Call original warn with correct parameters (warnings.warn only takes up to 5 parameters)
-    return _original_warn(message, category, filename, lineno, file)
+    # Call original warn with correct parameters (warnings.warn only takes 4 positional arguments)
+    return _original_warn(message, category, filename, lineno)
 
 # Replace the warnings.warn function
 warnings.warn = custom_warn
 
-# Suppress all Plotly and Streamlit warnings aggressively
+# Suppress all warnings aggressively
 warnings.filterwarnings("ignore", message=".*keyword arguments have been deprecated.*")
 warnings.filterwarnings("ignore", message=".*Use.*config.*instead.*")
 warnings.filterwarnings("ignore", message=".*deprecated and will be removed.*")
 warnings.filterwarnings("ignore", message=".*is deprecated.*")
 warnings.filterwarnings("ignore", message=".*scattermapbox.*")
+warnings.filterwarnings("ignore", message=".*BigQuery Storage.*")
+warnings.filterwarnings("ignore", message=".*pandas only supports.*")
+warnings.filterwarnings("ignore", message=".*SQLAlchemy connectable.*")
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
-warnings.filterwarnings("ignore", category=UserWarning, module="plotly")
-warnings.filterwarnings("ignore", category=UserWarning, module="streamlit")
-warnings.filterwarnings("ignore", category=UserWarning, module="_plotly_utils")
+warnings.filterwarnings("ignore", category=UserWarning)
 
-# Suppress all warnings as a last resort
+# Suppress all warnings as a nuclear option
 warnings.simplefilter("ignore")
 
 # Also suppress at the logging level
