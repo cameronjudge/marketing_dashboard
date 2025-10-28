@@ -487,12 +487,22 @@ def google_analytics_page() -> None:
                 views_trends_df['event_type'] = 'view_item'
                 combined_trends_df = pd.concat([combined_trends_df, views_trends_df], ignore_index=True)
             
-            # Language Trends - Last 30 days (top 10)
-            st.subheader('Language - Last 30 days (top 10)')
+            # Language Trends - Last 8 completed weeks (top 10)
+            st.subheader('Language - Last 8 completed weeks (top 10)')
             
-            # Filter to last 30 days
-            last_30_days = combined_trends_df['event_date'] >= (combined_trends_df['event_date'].max() - pd.Timedelta(days=30))
-            language_df = combined_trends_df[last_30_days].copy()
+            # Calculate last 8 completed weeks
+            latest_date = combined_trends_df['event_date'].max()
+            # Find the start of the current week (Monday)
+            current_week_start = latest_date - pd.Timedelta(days=latest_date.weekday())
+            # Go back 8 weeks from the start of current week to get 8 completed weeks
+            eight_weeks_ago = current_week_start - pd.Timedelta(weeks=8)
+            last_completed_week_end = current_week_start - pd.Timedelta(days=1)
+            
+            # Filter to last 8 completed weeks
+            language_df = combined_trends_df[
+                (combined_trends_df['event_date'] >= eight_weeks_ago) & 
+                (combined_trends_df['event_date'] <= last_completed_week_end)
+            ].copy()
             
             # Add week column for weekly aggregation
             language_df['week'] = language_df['event_date'].dt.to_period('W').dt.start_time
@@ -510,7 +520,7 @@ def google_analytics_page() -> None:
                 x='week',
                 y='events_count',
                 color='locale_aggregated',
-                title='Language - Last 30 days (top 10)',
+                title='Language - Last 8 completed weeks (top 10)',
                 markers=True
             )
             
@@ -543,22 +553,24 @@ def google_analytics_page() -> None:
             col1, col2 = st.columns(2)
             
             for i, language in enumerate(top_languages):
-                # Get installs data for this language (from ga_installs - last 30 days)
+                # Get installs data for this language (from ga_installs - last 8 completed weeks)
                 installs_lang_data = df[
                     (df['locale_aggregated'] == language) & 
-                    (df['event_date'] >= (df['event_date'].max() - pd.Timedelta(days=30)))
+                    (df['event_date'] >= eight_weeks_ago) & 
+                    (df['event_date'] <= last_completed_week_end)
                 ].copy()
                 installs_lang_data['week'] = installs_lang_data['event_date'].dt.to_period('W').dt.start_time
                 installs_weekly = installs_lang_data.groupby('week')['events_count'].sum().reset_index()
                 installs_weekly = installs_weekly.rename(columns={'events_count': 'installs_count'})
                 
-                # Get views data for this language (from ga_view_app - last 30 days)
+                # Get views data for this language (from ga_view_app - last 8 completed weeks)
                 if not views_df.empty:
                     views_df_processed = views_df.copy()
                     views_df_processed['event_date'] = pd.to_datetime(views_df_processed['event_date'], format='%Y%m%d')
                     views_lang_data = views_df_processed[
                         (views_df_processed['locale_aggregated'] == language) & 
-                        (views_df_processed['event_date'] >= (views_df_processed['event_date'].max() - pd.Timedelta(days=30)))
+                        (views_df_processed['event_date'] >= eight_weeks_ago) & 
+                        (views_df_processed['event_date'] <= last_completed_week_end)
                     ].copy()
                     views_lang_data['week'] = views_lang_data['event_date'].dt.to_period('W').dt.start_time
                     views_weekly = views_lang_data.groupby('week')['events_count'].sum().reset_index()
@@ -597,9 +609,10 @@ def google_analytics_page() -> None:
                         y=combined_data['installs_count'],
                         name='Installs',
                         marker_color='#1f77b4',
-                        text=combined_data['wow_change'].apply(lambda x: f"{x:+.1f}%" if pd.notna(x) else ""),
+                        text=combined_data['installs_count'].apply(lambda x: f"{int(x):,}" if pd.notna(x) else ""),
                         textposition='outside',
-                        hovertemplate='<b>Week:</b> %{x}<br><b>Installs:</b> %{y}<br><b>WoW Change:</b> %{text}<extra></extra>'
+                        hovertemplate='<b>Week:</b> %{x}<br><b>Installs:</b> %{y}<br><b>WoW Change:</b> %{customdata:.1f}%<extra></extra>',
+                        customdata=combined_data['wow_change']
                     ),
                     secondary_y=False
                 )
@@ -610,10 +623,12 @@ def google_analytics_page() -> None:
                         go.Scatter(
                             x=combined_data['week'],
                             y=combined_data['conversion_rate'],
-                            mode='lines+markers',
+                            mode='lines+markers+text',
                             name='Conversion Rate',
                             line=dict(color='#ff7f0e', width=2),
                             marker=dict(size=6),
+                            text=combined_data['conversion_rate'].apply(lambda x: f"{x:.1f}%" if pd.notna(x) and x > 0 else ""),
+                            textposition='top center',
                             hovertemplate='<b>Week:</b> %{x}<br><b>Conversion Rate:</b> %{y:.2f}%<br><b>Views:</b> %{customdata[0]}<br><b>Installs:</b> %{customdata[1]}<extra></extra>',
                             customdata=list(zip(combined_data['views_count'], combined_data['installs_count']))
                         ),
@@ -623,10 +638,10 @@ def google_analytics_page() -> None:
                 # Update layout
                 fig_individual.update_layout(
                     showlegend=True,
-                    margin=dict(l=10, r=10, t=40, b=10),
+                    margin=dict(l=10, r=10, t=80, b=10),
                     plot_bgcolor="rgba(0,0,0,0)",
                     paper_bgcolor="rgba(0,0,0,0)",
-                    height=350,
+                    height=380,
                     legend=dict(
                         orientation='h',
                         yanchor='top',
@@ -636,8 +651,14 @@ def google_analytics_page() -> None:
                     )
                 )
                 
-                # Set y-axes titles
-                fig_individual.update_yaxes(title_text="Installs", secondary_y=False, showgrid=False)
+                # Set y-axes titles and adjust range to provide space for labels
+                max_installs = combined_data['installs_count'].max() if not combined_data.empty else 100
+                fig_individual.update_yaxes(
+                    title_text="Installs", 
+                    secondary_y=False, 
+                    showgrid=False,
+                    range=[0, max_installs * 1.15]  # Add 15% padding above max value
+                )
                 fig_individual.update_yaxes(title_text="Conversion Rate (%)", secondary_y=True, showgrid=False)
                 fig_individual.update_xaxes(showgrid=False, title_text=None)
                 
@@ -649,8 +670,8 @@ def google_analytics_page() -> None:
                     with col2:
                         st.plotly_chart(fig_individual, use_container_width=True)
             
-            # Medium Trends - Last 30 days
-            st.subheader('Medium - Last 30 days')
+            # Medium Trends - Last 8 completed weeks
+            st.subheader('Medium - Last 8 completed weeks')
             
             # Aggregate by date and medium
             medium_daily = language_df.groupby(['event_date', 'medium_aggregated'])['events_count'].sum().reset_index()
@@ -664,7 +685,7 @@ def google_analytics_page() -> None:
                 x='event_date',
                 y='events_count',
                 color='medium_aggregated',
-                title='Medium - last 30 days',
+                title='Medium - Last 8 completed weeks',
                 markers=True
             )
             
@@ -697,22 +718,24 @@ def google_analytics_page() -> None:
             cols = st.columns(2)
             
             for i, medium in enumerate(all_mediums):
-                # Get installs data for this medium (from ga_installs - last 30 days)
+                # Get installs data for this medium (from ga_installs - last 8 completed weeks)
                 installs_medium_data = df[
                     (df['medium_aggregated'] == medium) & 
-                    (df['event_date'] >= (df['event_date'].max() - pd.Timedelta(days=30)))
+                    (df['event_date'] >= eight_weeks_ago) & 
+                    (df['event_date'] <= last_completed_week_end)
                 ].copy()
                 installs_medium_data['week'] = installs_medium_data['event_date'].dt.to_period('W').dt.start_time
                 installs_weekly = installs_medium_data.groupby('week')['events_count'].sum().reset_index()
                 installs_weekly = installs_weekly.rename(columns={'events_count': 'installs_count'})
                 
-                # Get views data for this medium (from ga_view_app - last 30 days)
+                # Get views data for this medium (from ga_view_app - last 8 completed weeks)
                 if not views_df.empty:
                     views_df_processed = views_df.copy()
                     views_df_processed['event_date'] = pd.to_datetime(views_df_processed['event_date'], format='%Y%m%d')
                     views_medium_data = views_df_processed[
                         (views_df_processed['medium_aggregated'] == medium) & 
-                        (views_df_processed['event_date'] >= (views_df_processed['event_date'].max() - pd.Timedelta(days=30)))
+                        (views_df_processed['event_date'] >= eight_weeks_ago) & 
+                        (views_df_processed['event_date'] <= last_completed_week_end)
                     ].copy()
                     views_medium_data['week'] = views_medium_data['event_date'].dt.to_period('W').dt.start_time
                     views_weekly = views_medium_data.groupby('week')['events_count'].sum().reset_index()
@@ -750,9 +773,10 @@ def google_analytics_page() -> None:
                         y=combined_data['installs_count'],
                         name='Installs',
                         marker_color='#2ca02c',
-                        text=combined_data['wow_change'].apply(lambda x: f"{x:+.1f}%" if pd.notna(x) else ""),
+                        text=combined_data['installs_count'].apply(lambda x: f"{int(x):,}" if pd.notna(x) else ""),
                         textposition='outside',
-                        hovertemplate='<b>Week:</b> %{x}<br><b>Installs:</b> %{y}<br><b>WoW Change:</b> %{text}<extra></extra>'
+                        hovertemplate='<b>Week:</b> %{x}<br><b>Installs:</b> %{y}<br><b>WoW Change:</b> %{customdata:.1f}%<extra></extra>',
+                        customdata=combined_data['wow_change']
                     ),
                     secondary_y=False
                 )
@@ -763,10 +787,12 @@ def google_analytics_page() -> None:
                         go.Scatter(
                             x=combined_data['week'],
                             y=combined_data['conversion_rate'],
-                            mode='lines+markers',
+                            mode='lines+markers+text',
                             name='Conversion Rate',
                             line=dict(color='#d62728', width=2),
                             marker=dict(size=6),
+                            text=combined_data['conversion_rate'].apply(lambda x: f"{x:.1f}%" if pd.notna(x) and x > 0 else ""),
+                            textposition='top center',
                             hovertemplate='<b>Week:</b> %{x}<br><b>Conversion Rate:</b> %{y:.2f}%<br><b>Views:</b> %{customdata[0]}<br><b>Installs:</b> %{customdata[1]}<extra></extra>',
                             customdata=list(zip(combined_data['views_count'], combined_data['installs_count']))
                         ),
@@ -776,10 +802,10 @@ def google_analytics_page() -> None:
                 # Update layout
                 fig_medium_individual.update_layout(
                     showlegend=True,
-                    margin=dict(l=10, r=10, t=40, b=10),
+                    margin=dict(l=10, r=10, t=80, b=10),
                     plot_bgcolor="rgba(0,0,0,0)",
                     paper_bgcolor="rgba(0,0,0,0)",
-                    height=350,
+                    height=380,
                     legend=dict(
                         orientation='h',
                         yanchor='top',
@@ -789,8 +815,14 @@ def google_analytics_page() -> None:
                     )
                 )
                 
-                # Set y-axes titles
-                fig_medium_individual.update_yaxes(title_text="Installs", secondary_y=False, showgrid=False)
+                # Set y-axes titles and adjust range to provide space for labels
+                max_installs = combined_data['installs_count'].max() if not combined_data.empty else 100
+                fig_medium_individual.update_yaxes(
+                    title_text="Installs", 
+                    secondary_y=False, 
+                    showgrid=False,
+                    range=[0, max_installs * 1.15]  # Add 15% padding above max value
+                )
                 fig_medium_individual.update_yaxes(title_text="Conversion Rate (%)", secondary_y=True, showgrid=False)
                 fig_medium_individual.update_xaxes(showgrid=False, title_text=None)
                 
@@ -932,14 +964,14 @@ def google_analytics_page() -> None:
                                     kw_pct_changes.append("N/A")
                             
                             keyword_performance['% Δ'] = kw_pct_changes
-                            keyword_performance = keyword_performance.sort_values('Installs', ascending=False).head(15)
+                            keyword_performance = keyword_performance.sort_values('Installs', ascending=False)
                             
                             st.dataframe(keyword_performance, width='stretch', hide_index=True)
                         else:
                             # Fallback for keywords
                             keyword_totals = keywords_df.groupby('campaign_details_aggregated')['events_count'].sum().reset_index()
                             keyword_totals.columns = ['Search-KWs', 'Installs']
-                            keyword_totals = keyword_totals.sort_values('Installs', ascending=False).head(15)
+                            keyword_totals = keyword_totals.sort_values('Installs', ascending=False)
                             st.dataframe(keyword_totals, width='stretch', hide_index=True)
                     else:
                         st.info("No keyword data available for organic search.")
@@ -1061,7 +1093,7 @@ def google_analytics_page() -> None:
                         placement_df.loc[placement_df['Previous_Installs'] == 0, 'WoW_Percent'] = None
                         
                         # Format for display
-                        placement_df = placement_df.sort_values('Current_Installs', ascending=False).head(10)
+                        placement_df = placement_df.sort_values('Current_Installs', ascending=False)
                         
                         # Create display table
                         display_placement_df = placement_df[['Campaign', 'Placement', 'Current_Installs', 'WoW_Delta', 'WoW_Percent']].copy()
@@ -1082,7 +1114,7 @@ def google_analytics_page() -> None:
                         placement_df = placement_df[placement_df['campaign_details_aggregated'].notna() & 
                                                   (placement_df['campaign_details_aggregated'] != '')]
                         placement_df.columns = ['Campaign', 'Placement', 'Installs']
-                        placement_df = placement_df.sort_values('Installs', ascending=False).head(10)
+                        placement_df = placement_df.sort_values('Installs', ascending=False)
                         
                         if not placement_df.empty:
                             st.dataframe(placement_df, width='stretch', hide_index=True)
@@ -1118,7 +1150,7 @@ def google_analytics_page() -> None:
                             category_df.loc[category_df['Previous_Installs'] == 0, 'WoW_Percent'] = None
                             
                             # Format for display
-                            category_df = category_df.sort_values('Current_Installs', ascending=False).head(7)
+                            category_df = category_df.sort_values('Current_Installs', ascending=False)
                             display_category_df = category_df[['Category', 'Current_Installs', 'WoW_Delta', 'WoW_Percent']].copy()
                             display_category_df.columns = ['Category', 'Installs', 'WoW Δ', 'WoW %']
                             display_category_df['WoW %'] = display_category_df['WoW %'].apply(
@@ -1134,7 +1166,7 @@ def google_analytics_page() -> None:
                             category_df = explore_df.groupby('surface_type_parsed')['events_count'].sum().reset_index()
                             category_df = category_df[category_df['surface_type_parsed'].notna()]
                             category_df.columns = ['Category', 'Installs']
-                            category_df = category_df.sort_values('Installs', ascending=False).head(7)
+                            category_df = category_df.sort_values('Installs', ascending=False)
                             
                             if not category_df.empty:
                                 st.dataframe(category_df, width='stretch', hide_index=True)
@@ -1167,7 +1199,7 @@ def google_analytics_page() -> None:
                             story_df.loc[story_df['Previous_Installs'] == 0, 'WoW_Percent'] = None
                             
                             # Format for display
-                            story_df = story_df.sort_values('Current_Installs', ascending=False).head(7)
+                            story_df = story_df.sort_values('Current_Installs', ascending=False)
                             display_story_df = story_df[['Story', 'Current_Installs', 'WoW_Delta', 'WoW_Percent']].copy()
                             display_story_df.columns = ['Story', 'Installs', 'WoW Δ', 'WoW %']
                             display_story_df['WoW %'] = display_story_df['WoW %'].apply(
@@ -1183,7 +1215,7 @@ def google_analytics_page() -> None:
                             story_df = explore_df.groupby('surface_detail_parsed')['events_count'].sum().reset_index()
                             story_df = story_df[story_df['surface_detail_parsed'].notna()]
                             story_df.columns = ['Story', 'Installs']
-                            story_df = story_df.sort_values('Installs', ascending=False).head(7)
+                            story_df = story_df.sort_values('Installs', ascending=False)
                             
                             if not story_df.empty:
                                 st.dataframe(story_df, width='stretch', hide_index=True)
