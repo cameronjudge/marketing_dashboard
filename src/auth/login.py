@@ -33,7 +33,7 @@ def user_login() -> bool:
         # Center the login button
         col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
         with col_btn2:
-            if st.button('Login with Google', use_container_width=True):
+            if st.button('Login with Google', width='stretch'):
                 st.login('google')
 
     return False
