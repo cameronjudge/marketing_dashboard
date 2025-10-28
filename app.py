@@ -1,4 +1,13 @@
 import streamlit as st
+import warnings
+import os
+
+# Suppress Plotly deprecation warnings
+warnings.filterwarnings("ignore", message=".*keyword arguments have been deprecated.*")
+warnings.filterwarnings("ignore", category=FutureWarning, module="plotly")
+
+# Set environment variable to suppress Plotly warnings
+os.environ['PLOTLY_SUPPRESS_WARNINGS'] = '1'
 
 from src.app.settings import configure_page
 from src.app.layout import render_chrome, collapse_sidebar

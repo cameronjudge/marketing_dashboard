@@ -6,6 +6,13 @@ from plotly.subplots import make_subplots
 from src.db.bigquery_connection import run_query
 from src.sql.google_analytics.google_analytics import ga_installs, ga_view_app
 
+# Global Plotly configuration to avoid deprecation warnings
+PLOTLY_CONFIG = {
+    'displayModeBar': False,
+    'displaylogo': False,
+    'staticPlot': False
+}
+
 def google_analytics_page() -> None:
     st.set_page_config(
         page_title='Google Analytics',
