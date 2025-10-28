@@ -64,5 +64,5 @@ def onboarding_page() -> None:
                 title='Time to first review (weekly)',
                 labels={'value': 'Days', 'week': 'Week', 'variable': 'Metric'}
             )
-            st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
             

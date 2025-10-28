@@ -89,7 +89,7 @@ def growth_page() -> None:
     fig_overall.update_xaxes(showgrid=False)
     fig_overall.update_yaxes(showgrid=False)
     
-    st.plotly_chart(fig_overall, width='stretch', config={'displayModeBar': False})
+    st.plotly_chart(fig_overall, use_container_width=True, config={'displayModeBar': False})
     
     # Net Growth WoW — Awesome (New – Lost) users this week (paid users only)
     st.subheader('Net Growth WoW — Awesome')
@@ -154,7 +154,7 @@ def growth_page() -> None:
     fig_awesome.update_xaxes(showgrid=False)
     fig_awesome.update_yaxes(showgrid=False)
     
-    st.plotly_chart(fig_awesome, width='stretch', config={'displayModeBar': False})
+    st.plotly_chart(fig_awesome, use_container_width=True, config={'displayModeBar': False})
     
     # Monthly Growth Rate — Free vs Awesome
     st.subheader('Monthly Growth Rate — Free vs Awesome')
@@ -274,4 +274,4 @@ def growth_page() -> None:
     fig_monthly.update_xaxes(showgrid=False)
     fig_monthly.update_yaxes(showgrid=False)
     
-    st.plotly_chart(fig_monthly, width='stretch', config={'displayModeBar': False})
+    st.plotly_chart(fig_monthly, use_container_width=True, config={'displayModeBar': False})

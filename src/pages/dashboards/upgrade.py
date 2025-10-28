@@ -104,7 +104,7 @@ def upgrade_page() -> None:
             yaxis=dict(tickformat=','),
             margin=dict(t=10)
         )
-        st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
     # Upgrades by source (stacked bar)
     up_left, up_right = st.columns([3, 2])
@@ -219,7 +219,7 @@ def upgrade_page() -> None:
         yaxis=dict(tickformat=','),
         margin=dict(t=10)
     )
-    st.plotly_chart(fig2, width='stretch', config={'displayModeBar': False})
+    st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
 
     # Net Awesome (Net Upgrades) Chart
     st.subheader('Net Awesome (Upgrades - Downgrades)')
@@ -287,7 +287,7 @@ def upgrade_page() -> None:
     fig_net.update_xaxes(showgrid=False)
     fig_net.update_yaxes(showgrid=False)
     
-    st.plotly_chart(fig_net, width='stretch', config={'displayModeBar': False})
+    st.plotly_chart(fig_net, use_container_width=True, config={'displayModeBar': False})
 
     # Trial Conversions by Type
     st.subheader('Trial Conversion Rates by Type')
@@ -421,7 +421,7 @@ def upgrade_page() -> None:
             fig_conv.update_xaxes(showgrid=False)
             fig_conv.update_yaxes(showgrid=False)
             
-            st.plotly_chart(fig_conv, width='stretch', config={'displayModeBar': False})
+            st.plotly_chart(fig_conv, use_container_width=True, config={'displayModeBar': False})
         else:
             st.info('Select at least one trial type to display conversion rates.')
     else:

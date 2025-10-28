@@ -28,7 +28,7 @@ DEFAULT_PLOTLY_CONFIG = {
 
 def render_plotly_chart(
     fig: go.Figure, 
-    width: str = 'stretch', 
+    use_container_width: bool = True,
     config: Optional[Dict[str, Any]] = None,
     **kwargs
 ) -> None:
@@ -37,7 +37,7 @@ def render_plotly_chart(
     
     Args:
         fig: Plotly figure object
-        width: Chart width ('stretch' or 'content')
+        use_container_width: Whether to use full container width
         config: Optional custom config (defaults to DEFAULT_PLOTLY_CONFIG)
         **kwargs: Additional arguments passed to st.plotly_chart
     """
@@ -48,4 +48,4 @@ def render_plotly_chart(
     final_config = DEFAULT_PLOTLY_CONFIG.copy()
     final_config.update(config)
     
-    st.plotly_chart(fig, width=width, config=final_config, **kwargs)
+    st.plotly_chart(fig, use_container_width=use_container_width, config=final_config, **kwargs)

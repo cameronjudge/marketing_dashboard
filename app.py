@@ -88,10 +88,12 @@ SAFE_PLOTLY_CONFIG = {
 # Monkey patch st.plotly_chart to completely suppress warnings
 _original_plotly_chart = st.plotly_chart
 
-def safe_plotly_chart(figure_or_data, width='stretch', config=None, **kwargs):
+def safe_plotly_chart(figure_or_data, use_container_width=True, config=None, **kwargs):
     """Safe wrapper for st.plotly_chart that prevents ALL warnings"""
     # Use safe config
     final_config = SAFE_PLOTLY_CONFIG.copy()
+    if config:
+        final_config.update(config)
     
     # Completely suppress ALL warnings and errors during chart rendering
     old_warn = warnings.warn
@@ -103,12 +105,12 @@ def safe_plotly_chart(figure_or_data, width='stretch', config=None, **kwargs):
         warnings.showwarning = lambda *args, **kwargs: None
         warnings.simplefilter("ignore")
         
-        # Call the original function
-        return _original_plotly_chart(figure_or_data, width=width, config=final_config)
+        # Call the original function with new parameter structure
+        return _original_plotly_chart(figure_or_data, use_container_width=use_container_width, config=final_config, **kwargs)
     except Exception as e:
         # If there's any error, try without config
         try:
-            return _original_plotly_chart(figure_or_data, width=width)
+            return _original_plotly_chart(figure_or_data, use_container_width=use_container_width, **kwargs)
         except:
             # Last resort - return None to prevent crashes
             return None
