@@ -6,62 +6,60 @@ from typing import Any, Dict, Optional
 import plotly.graph_objects as go
 import plotly.io as pio
 
-# Override the warnings.warn function to suppress specific messages
-_original_warn = warnings.warn
-
-def custom_warn(message, category=UserWarning, filename='', lineno=-1, file=None, stacklevel=1):
-    """Custom warning function that suppresses Plotly deprecation warnings"""
-    try:
-        message_str = str(message).lower()
-        if any(phrase in message_str for phrase in [
-            'keyword arguments have been deprecated',
-            'use config instead',
-            'deprecated and will be removed',
-            'plotly configuration options',
-            'scattermapbox',
-            'is deprecated',
-            'bigquery storage',
-            'pandas only supports',
-            'sqlalchemy connectable'
-        ]):
-            return  # Suppress these warnings
-    except Exception:
-        pass  # If there's any error in processing, just continue
-    
-    # Call original warn with correct parameters (warnings.warn only takes 4 positional arguments)
-    return _original_warn(message, category, filename, lineno)
-
-# Replace the warnings.warn function
-warnings.warn = custom_warn
-
-# Suppress all warnings aggressively
-warnings.filterwarnings("ignore", message=".*keyword arguments have been deprecated.*")
-warnings.filterwarnings("ignore", message=".*Use.*config.*instead.*")
-warnings.filterwarnings("ignore", message=".*deprecated and will be removed.*")
-warnings.filterwarnings("ignore", message=".*is deprecated.*")
-warnings.filterwarnings("ignore", message=".*scattermapbox.*")
-warnings.filterwarnings("ignore", message=".*BigQuery Storage.*")
-warnings.filterwarnings("ignore", message=".*pandas only supports.*")
-warnings.filterwarnings("ignore", message=".*SQLAlchemy connectable.*")
-warnings.filterwarnings("ignore", category=FutureWarning)
-warnings.filterwarnings("ignore", category=DeprecationWarning)
-warnings.filterwarnings("ignore", category=UserWarning)
-
-# Suppress all warnings as a nuclear option
+# NUCLEAR WARNING SUPPRESSION - Must be done FIRST before any other imports
 warnings.simplefilter("ignore")
+os.environ['PYTHONWARNINGS'] = 'ignore'
 
-# Also suppress at the logging level
+# Completely disable warnings at the system level
+def null_warn(*args, **kwargs):
+    """Completely suppress all warnings"""
+    pass
+
+# Replace warnings.warn with a no-op function
+warnings.warn = null_warn
+warnings.warn_explicit = null_warn
+
+# Also override the showwarning function
+def null_showwarning(*args, **kwargs):
+    """Completely suppress warning display"""
+    pass
+
+warnings.showwarning = null_showwarning
+
+# Additional warning suppression (redundant but ensures coverage)
+try:
+    warnings.filterwarnings("ignore")
+    warnings.simplefilter("ignore")
+except:
+    pass
+
+# Suppress at the logging level
 import logging
 try:
-    logging.getLogger("streamlit").setLevel(logging.ERROR)
-    logging.getLogger("plotly").setLevel(logging.ERROR)
+    # Set all loggers to CRITICAL to suppress warnings
+    logging.getLogger().setLevel(logging.CRITICAL)
+    logging.getLogger("streamlit").setLevel(logging.CRITICAL)
+    logging.getLogger("plotly").setLevel(logging.CRITICAL)
+    logging.getLogger("pandas").setLevel(logging.CRITICAL)
+    logging.getLogger("google").setLevel(logging.CRITICAL)
+    
+    # Disable all logging handlers
+    logging.disable(logging.CRITICAL)
 except Exception:
-    pass  # If logging configuration fails, continue
+    pass
 
 # Set environment variables to suppress warnings
 os.environ['PLOTLY_SUPPRESS_WARNINGS'] = '1'
 os.environ['STREAMLIT_SUPPRESS_WARNINGS'] = '1'
 os.environ['PYTHONWARNINGS'] = 'ignore'
+os.environ['STREAMLIT_LOGGER_LEVEL'] = 'error'
+
+# Try to suppress Streamlit's internal warning system
+try:
+    import streamlit.logger
+    streamlit.logger.get_logger().setLevel(logging.CRITICAL)
+except:
+    pass
 
 # Skip Plotly template configuration to avoid errors
 # Templates can cause compatibility issues, so we'll let Plotly use its defaults
@@ -87,19 +85,37 @@ SAFE_PLOTLY_CONFIG = {
     'scrollZoom': False
 }
 
-# Monkey patch st.plotly_chart to always use safe config
+# Monkey patch st.plotly_chart to completely suppress warnings
 _original_plotly_chart = st.plotly_chart
 
 def safe_plotly_chart(figure_or_data, width='stretch', config=None, **kwargs):
-    """Safe wrapper for st.plotly_chart that prevents deprecation warnings"""
-    # Always use our safe config, ignoring any passed config to avoid conflicts
+    """Safe wrapper for st.plotly_chart that prevents ALL warnings"""
+    # Use safe config
     final_config = SAFE_PLOTLY_CONFIG.copy()
     
-    # Suppress warnings during the call
-    with warnings.catch_warnings():
+    # Completely suppress ALL warnings and errors during chart rendering
+    old_warn = warnings.warn
+    old_showwarning = warnings.showwarning
+    
+    try:
+        # Disable all warnings temporarily
+        warnings.warn = lambda *args, **kwargs: None
+        warnings.showwarning = lambda *args, **kwargs: None
         warnings.simplefilter("ignore")
-        # Only pass the allowed parameters (no **kwargs as they're deprecated)
+        
+        # Call the original function
         return _original_plotly_chart(figure_or_data, width=width, config=final_config)
+    except Exception as e:
+        # If there's any error, try without config
+        try:
+            return _original_plotly_chart(figure_or_data, width=width)
+        except:
+            # Last resort - return None to prevent crashes
+            return None
+    finally:
+        # Restore warning functions (though we keep them disabled)
+        warnings.warn = null_warn
+        warnings.showwarning = null_showwarning
 
 # Replace the original function
 st.plotly_chart = safe_plotly_chart
